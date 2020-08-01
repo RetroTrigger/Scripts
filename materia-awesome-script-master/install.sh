@@ -20,4 +20,7 @@ sudo apt update
 
 sudo apt install brave-browser
 
+# Copy LightDM Config
+cp lightdm.conf /etc/lightdm/
+
 echo $'\n'$"*** All done! Please reboot now. ***"
