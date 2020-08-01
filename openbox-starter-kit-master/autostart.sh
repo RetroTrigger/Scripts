@@ -1,0 +1,3 @@
+nitrogen --restore &
+xcompmgr &
+plank &
