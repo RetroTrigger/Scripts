@@ -23,7 +23,7 @@ sudo mv  -v ~/Juno /usr/share/themes/
 
 #Clone the configuration
 rm -rf ~/.config/awesome
-git clone https://github.com/RishitPandey/awesome-config.git ~/.config
+git clone https://github.com/RetroTrigger/awesome-config.git ~/.config
 
 #Download Tela Green Icons
 cd ~
@@ -31,3 +31,4 @@ git clone https://github.com/vinceliuice/Tela-icon-theme.git
 cd Tela-icon-theme
 sudo chmod +x install.sh
 ./install.sh green
+rm -rf ~/Tela-icon-theme
