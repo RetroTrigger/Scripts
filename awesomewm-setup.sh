@@ -8,7 +8,7 @@
 #Arch-Based
 sudo pacman -Syyu -y
 sudo pacman -S yay -y
-yay -S git awesome rofi picom polkit-gnome lxappearance flameshot pnmixer network-manager-applet xfce4-power-manager kitty micro feh imagemagick bluez blueman xorg-xbacklight pcmanfm firefox xsecurelock -y
+yay -S git awesome rofi picom polkit-gnome lxappearance flameshot volumeicon network-manager-applet xfce4-power-manager kitty micro feh imagemagick bluez blueman xorg-xbacklight pcmanfm firefox xsecurelock -y
 
 #install Fonts
 git clone https://github.com/perrychan1/fonts.git
