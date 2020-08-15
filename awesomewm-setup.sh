@@ -27,6 +27,7 @@ cd ~
 git clone https://github.com/ChrisTitusTech/wallpaper-reddit.git
 cd wallpaper-reddit
 sudo python3 setup.py install
+sudo rm -rf ~/user/wallpaper-reddit
 
 #Install Oh-My-Zsh
 sh -c "$(wget https://raw.github.com/ohmyzsh/ohmyzsh/master/tools/install.sh -O -)"
