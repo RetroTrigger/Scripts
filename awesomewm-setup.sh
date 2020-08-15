@@ -7,7 +7,7 @@
 
 #Arch-Based
 yes |sudo pacman -Syyu
-yes |sudo pacman -S yay brave python-pillow file-roller nitrogen steam
+yes |sudo pacman -S yay brave python-pillow file-roller nitrogen steam gvfs-smb
 yes |yay -S git awesome rofi picom polkit-gnome nerd-fonts-meslo lxappearance flameshot volumeicon network-manager-applet xfce4-power-manager kitty micro feh imagemagick bluez blueman xorg-xbacklight pcmanfm xsecurelock 
 
 #install Fonts
