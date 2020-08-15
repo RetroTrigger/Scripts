@@ -6,14 +6,14 @@
 #sudo apt install awesome rofi picom lxappearance xfce4-power-manager pnmixer network-manager-gnome policykit-1-gnome kitty micro feh imagemagick bluez blueman xbacklight pcmanfm firefox xsecurelock -y
 
 #Arch-Based
-sudo pacman -Syyu -y
-sudo pacman -S yay -y
-yay -S git awesome rofi picom polkit-gnome lxappearance flameshot volumeicon network-manager-applet xfce4-power-manager kitty micro feh imagemagick bluez blueman xorg-xbacklight pcmanfm firefox xsecurelock -y
+yes |sudo pacman -Syyu
+yes |sudo pacman -S yay brave python-pillow file-roller nitrogen steam
+yes |yay -S git awesome rofi picom polkit-gnome nerd-fonts-meslo lxappearance flameshot volumeicon network-manager-applet xfce4-power-manager kitty micro feh imagemagick bluez blueman xorg-xbacklight pcmanfm xsecurelock 
 
 #install Fonts
 git clone https://github.com/perrychan1/fonts.git
 sudo mv  -v ~/fonts /usr/share/fonts/
-sudo pacman -S ttf-fira-code -y
+yes |sudo pacman -S ttf-fira-code
 #sudo apt install fonts-firacode
 fc-cache -f -v
 
@@ -22,22 +22,42 @@ cd ~
 git clone https://github.com/EliverLara/Juno.git
 sudo mv  -v ~/Juno /usr/share/themes/
 
+#Install Wallpaper-reddit
+cd ~
+git clone https://github.com/ChrisTitusTech/wallpaper-reddit.git
+cd wallpaper-reddit
+sudo python3 setup.py install
+
+#Install Oh-My-Zsh
+sh -c "$(wget https://raw.github.com/ohmyzsh/ohmyzsh/master/tools/install.sh -O -)"
+
+#Install Powerlevel10K
+git clone --depth=1 https://github.com/romkatv/powerlevel10k.git ${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}/themes/powerlevel10k
+
 #Clone the configuration
 cd ~
-git clone https://github.com/RetroTrigger/awesome-config.git 
+git clone https://github.com/RetroTrigger/dotfiles.git 
 
-sudo rm -rf ~/.config/awesome
+sudo mv  -v ~/.config/awesome ~/.config/old.awesome
 sudo rm -rf ~/.config/rofi
 sudo rm -rf ~/.config/compton.conf
+sudo rm -rf ~/.config/wallpaper-reddit
+sudo rm -rf ~/.zshrc
 
-sudo mv  -v ~/awesome-config/awesome ~/.config
-sudo mv  -v ~/awesome-config/images ~/.config
-sudo mv  -v ~/awesome-config/kitty ~/.config
-sudo mv  -v ~/awesome-config/rofi ~/.config
-sudo mv  -v ~/awesome-config/picom.conf ~/.config
-sudo mv  -v ~/awesome-config/tn0k20exrnb51.jpg ~/.config
+sudo mv  -v ~/dotfiles/.config/awesome ~/.config
+sudo mv  -v ~/dotfiles/.config/nitrogen ~/.config
+sudo mv  -v ~/dotfiles/.config/volumeicon~/.config
+sudo mv  -v ~/dotfiles/.config/wallpaper-reddit ~/.config
+sudo mv  -v ~/dotfiles/.config/tn0k20exrnb51.jpg ~/.config
+sudo mv  -v ~/dotfiles/.config/images ~/.config
+sudo mv  -v ~/dotfiles/.config/kitty ~/.config
+sudo mv  -v ~/dotfiles/.config/rofi ~/.config
+sudo mv  -v ~/dotfiles/.config/picom.conf ~/.config
+sudo mv  -v ~/dotfiles/.fehbg ~/
+sudo mv  -v ~/dotfiles/.p10k.zsh ~/
+sudo mv  -v ~/dotfiles/.zshrc ~/
 
-sudo rm -rf ~/awesome-config
+sudo rm -rf ~/dotfiles
 
 #Download Tela Green Icons
 cd ~
@@ -46,3 +66,7 @@ cd Tela-icon-theme
 sudo chmod +x install.sh
 ./install.sh green
 rm -rf ~/Tela-icon-theme
+
+echo "All Done Rebooting Now!!"
+sleep 3s
+sudo reboot
