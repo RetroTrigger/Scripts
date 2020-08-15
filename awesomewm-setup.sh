@@ -7,7 +7,7 @@
 
 #Arch-Based
 yes |sudo pacman -Syyu
-yes |sudo pacman -S yay brave python-pillow file-roller nitrogen steam gvfs-smb
+yes |sudo pacman -S yay brave python-pillow file-roller nitrogen steam gvfs-smb fakeroot gcc binutils
 yes |yay -S git awesome rofi picom polkit-gnome nerd-fonts-meslo lxappearance flameshot volumeicon network-manager-applet xfce4-power-manager kitty micro feh imagemagick bluez blueman xorg-xbacklight pcmanfm xsecurelock 
 
 #install Fonts
@@ -33,6 +33,8 @@ sh -c "$(wget https://raw.github.com/ohmyzsh/ohmyzsh/master/tools/install.sh -O 
 
 #Install Powerlevel10K
 git clone --depth=1 https://github.com/romkatv/powerlevel10k.git ${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}/themes/powerlevel10k
+git clone https://github.com/zsh-users/zsh-autosuggestions.git $ZSH_CUSTOM/plugins/zsh-autosuggestions
+git clone https://github.com/zsh-users/zsh-syntax-highlighting.git $ZSH_CUSTOM/plugins/zsh-syntax-highlighting
 
 #Clone the configuration
 cd ~
