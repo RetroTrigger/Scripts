@@ -1,10 +1,5 @@
 #!/bin/bash
 
-#Debian-Based
-#sudo add-apt-repository ppa:regolith-linux/unstable -y
-#sudo apt update
-#sudo apt install awesome rofi picom lxappearance xfce4-power-manager pnmixer network-manager-gnome policykit-1-gnome kitty micro feh imagemagick bluez blueman xbacklight pcmanfm firefox xsecurelock -y
-
 #Arch-Based
 yes |sudo pacman -Syyu
 yes |sudo pacman -S yay brave python-pillow file-roller nitrogen steam gvfs-smb fakeroot gcc binutils
@@ -14,7 +9,6 @@ yes |yay -S git awesome rofi picom polkit-gnome nerd-fonts-meslo lxappearance fl
 git clone https://github.com/perrychan1/fonts.git
 sudo mv  -v ~/fonts /usr/share/fonts/
 yes |sudo pacman -S ttf-fira-code
-#sudo apt install fonts-firacode
 fc-cache -f -v
 
 #Download Juno GTK Theme
@@ -29,13 +23,8 @@ cd wallpaper-reddit
 sudo python3 setup.py install
 sudo rm -rf ~/user/wallpaper-reddit
 
-#Install Oh-My-Zsh
-sh -c "$(wget https://raw.github.com/ohmyzsh/ohmyzsh/master/tools/install.sh -O -)"
-
 #Install Powerlevel10K
 git clone --depth=1 https://github.com/romkatv/powerlevel10k.git ${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}/themes/powerlevel10k
-git clone https://github.com/zsh-users/zsh-autosuggestions.git $ZSH_CUSTOM/plugins/zsh-autosuggestions
-git clone https://github.com/zsh-users/zsh-syntax-highlighting.git $ZSH_CUSTOM/plugins/zsh-syntax-highlighting
 
 #Clone the configuration
 cd ~
@@ -69,6 +58,11 @@ cd Tela-icon-theme
 sudo chmod +x install.sh
 ./install.sh green
 rm -rf ~/Tela-icon-theme
+
+#Install Oh-My-Zsh
+sh -c "$(wget https://raw.github.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"
+git clone https://github.com/zsh-users/zsh-autosuggestions.git $ZSH_CUSTOM/plugins/zsh-autosuggestions
+git clone https://github.com/zsh-users/zsh-syntax-highlighting.git $ZSH_CUSTOM/plugins/zsh-syntax-highlighting
 
 echo "All Done Rebooting Now!!"
 sleep 3s
