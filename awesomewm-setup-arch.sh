@@ -9,6 +9,10 @@ yes |yay -S git awesome rofi picom polkit-gnome nerd-fonts-meslo lxappearance fl
 git clone https://github.com/perrychan1/fonts.git
 sudo mv  -v ~/fonts /usr/share/fonts/
 yes |sudo pacman -S ttf-fira-code
+wget -P /usr/share/fonts https://github.com/romkatv/powerlevel10k-media/raw/master/MesloLGS%20NF%20Regular.ttf
+wget -P /usr/share/fonts https://github.com/romkatv/powerlevel10k-media/raw/master/MesloLGS%20NF%20Bold.ttf
+wget -P /usr/share/fonts https://github.com/romkatv/powerlevel10k-media/raw/master/MesloLGS%20NF%20Italic.ttf
+wget -P /usr/share/fonts https://github.com/romkatv/powerlevel10k-media/raw/master/MesloLGS%20NF%20Bold%20Italic.ttf
 fc-cache -f -v
 
 #Download Juno GTK Theme
@@ -22,9 +26,6 @@ git clone https://github.com/ChrisTitusTech/wallpaper-reddit.git
 cd wallpaper-reddit
 sudo python3 setup.py install
 sudo rm -rf ~/user/wallpaper-reddit
-
-#Install Powerlevel10K
-git clone --depth=1 https://github.com/romkatv/powerlevel10k.git ${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}/themes/powerlevel10k
 
 #Clone the configuration
 cd ~
@@ -63,6 +64,9 @@ rm -rf ~/Tela-icon-theme
 sh -c "$(wget https://raw.github.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"
 git clone https://github.com/zsh-users/zsh-autosuggestions.git $ZSH_CUSTOM/plugins/zsh-autosuggestions
 git clone https://github.com/zsh-users/zsh-syntax-highlighting.git $ZSH_CUSTOM/plugins/zsh-syntax-highlighting
+
+#Install Powerlevel10K
+git clone --depth=1 https://github.com/romkatv/powerlevel10k.git ${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}/themes/powerlevel10k
 
 echo "All Done Rebooting Now!!"
 sleep 3s
