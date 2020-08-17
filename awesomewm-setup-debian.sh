@@ -9,10 +9,10 @@ sudo apt install git zsh awesome rofi picom lxappearance xfce4-power-manager pnm
 git clone https://github.com/perrychan1/fonts.git
 sudo mv  -v ~/fonts /usr/share/fonts/
 sudo apt install fonts-firacode -y
-wget -P /usr/share/fonts https://github.com/romkatv/powerlevel10k-media/raw/master/MesloLGS%20NF%20Regular.ttf
-wget -P /usr/share/fonts https://github.com/romkatv/powerlevel10k-media/raw/master/MesloLGS%20NF%20Bold.ttf
-wget -P /usr/share/fonts https://github.com/romkatv/powerlevel10k-media/raw/master/MesloLGS%20NF%20Italic.ttf
-wget -P /usr/share/fonts https://github.com/romkatv/powerlevel10k-media/raw/master/MesloLGS%20NF%20Bold%20Italic.ttf
+sudo wget -P /usr/share/fonts https://github.com/romkatv/powerlevel10k-media/raw/master/MesloLGS%20NF%20Regular.ttf
+sudo wget -P /usr/share/fonts https://github.com/romkatv/powerlevel10k-media/raw/master/MesloLGS%20NF%20Bold.ttf
+sudo wget -P /usr/share/fonts https://github.com/romkatv/powerlevel10k-media/raw/master/MesloLGS%20NF%20Italic.ttf
+sudo wget -P /usr/share/fonts https://github.com/romkatv/powerlevel10k-media/raw/master/MesloLGS%20NF%20Bold%20Italic.ttf
 fc-cache -f -v
 
 #Download Juno GTK Theme
