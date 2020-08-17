@@ -3,7 +3,7 @@
 #Debian-Based
 sudo add-apt-repository ppa:regolith-linux/unstable -y
 sudo apt update && sudo apt upgrade -y
-sudo apt install git zsh awesome rofi picom lxappearance xfce4-power-manager pnmixer network-manager-gnome volumeicon-alsa policykit-1-gnome nitrogen rxvt-unicode imagemagick bluez blueman xbacklight xsecurelock steam python3-dev python3-setuptools libjpeg8-dev zlib1g-dev libfreetype6-dev -y 
+sudo apt install git zsh awesome rofi picom lxappearance xfce4-power-manager pnmixer network-manager-gnome volumeicon-alsa policykit-1-gnome nitrogen terminator imagemagick bluez blueman xbacklight xsecurelock steam python3-dev python3-setuptools libjpeg8-dev zlib1g-dev libfreetype6-dev -y 
 
 #install Fonts
 git clone https://github.com/perrychan1/fonts.git
