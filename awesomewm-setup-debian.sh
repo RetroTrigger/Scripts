@@ -38,14 +38,15 @@ sudo rm -rf ~/.config/wallpaper-reddit
 sudo rm -rf ~/.zshrc
 
 sudo mv  -v ~/dotfiles/.config/awesome ~/.config
-sudo mv  -v ~/dotfiles/.config/nitrogen ~/.config
-sudo mv  -v ~/dotfiles/.config/volumeicon~/.config
-sudo mv  -v ~/dotfiles/.config/wallpaper-reddit ~/.config
-sudo mv  -v ~/dotfiles/.config/tn0k20exrnb51.jpg ~/.config
 sudo mv  -v ~/dotfiles/.config/images ~/.config
-sudo mv  -v ~/dotfiles/.config/kitty ~/.config
+sudo mv  -v ~/dotfiles/.config/lutris ~/.config
+sudo mv  -v ~/dotfiles/.config/nitrogen ~/.config
 sudo mv  -v ~/dotfiles/.config/rofi ~/.config
+sudo mv  -v ~/dotfiles/.config/terminator ~/.config
+sudo mv  -v ~/dotfiles/.config/volumeicon ~/.config
+sudo mv  -v ~/dotfiles/.config/wallpaper-reddit ~/.config
 sudo mv  -v ~/dotfiles/.config/picom.conf ~/.config
+sudo mv  -v ~/dotfiles/.config/tn0k20exrnb51.jpg ~/.config
 sudo mv  -v ~/dotfiles/.fehbg ~/
 sudo mv  -v ~/dotfiles/.p10k.zsh ~/
 sudo mv  -v ~/dotfiles/.zshrc ~/
