@@ -1,14 +1,14 @@
 #!/bin/bash
 
 #Arch-Based
-yes |sudo pacman -Syyu
-yes |sudo pacman -S yay brave python-pillow file-roller nitrogen steam gvfs-smb fakeroot gcc binutils
-yes |yay -S git awesome rofi picom polkit-gnome nerd-fonts-meslo lxappearance flameshot volumeicon network-manager-applet xfce4-power-manager kitty micro feh imagemagick bluez blueman xorg-xbacklight pcmanfm xsecurelock 
+sudo pacman -Syyu --nocommit
+sudo pacman -S yay brave python-pillow file-roller nitrogen steam gvfs-smb fakeroot gcc binutils --nocommit
+yay -S git awesome rofi picom polkit-gnome nerd-fonts-meslo lxappearance flameshot volumeicon network-manager-applet xfce4-power-manager kitty micro feh imagemagick bluez blueman xorg-xbacklight pcmanfm xsecurelock --nocommit
 
 #install Fonts
 git clone https://github.com/perrychan1/fonts.git
 sudo mv  -v ~/fonts /usr/share/fonts/
-yes |sudo pacman -S ttf-fira-code
+sudo pacman -S ttf-fira-code --nocommit
 wget -P /usr/share/fonts https://github.com/romkatv/powerlevel10k-media/raw/master/MesloLGS%20NF%20Regular.ttf
 wget -P /usr/share/fonts https://github.com/romkatv/powerlevel10k-media/raw/master/MesloLGS%20NF%20Bold.ttf
 wget -P /usr/share/fonts https://github.com/romkatv/powerlevel10k-media/raw/master/MesloLGS%20NF%20Italic.ttf
