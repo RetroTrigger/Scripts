@@ -13,14 +13,16 @@ sudo pacman -S --noconfirm --needed \
 	xscreensaver \
 	vlc \
 	terminator \
-	neofetch \
+	pfetch \
 	nitrogen \
+	variety \
 	rofi
 
 #yay
 yay -S --noconfirm --needed \
 dropbox \
-shell-color-scripts
+shell-color-scripts \
+picom-tryone-git
 
 ##command line utilities
 sudo pacman -S --noconfirm --needed \
