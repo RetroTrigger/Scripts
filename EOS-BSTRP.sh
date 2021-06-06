@@ -96,7 +96,6 @@ apt install openjdk-8-jdk openjdk-8-jre
 
 ## APPS TO INSTALL & CONFIGURE VIA TERMINAL
 
-
 ##flash-plugin##
 apt install flashplugin-installer pepperflashplugin-nonfree
 
@@ -112,7 +111,7 @@ apt install unace rar unrar p7zip-rar p7zip sharutils uudeview mpack arj cabextr
 ## Other Tweaks/Fixes
 
 ##ZSH##
-sudo apt install zsh zsh-syntax-highlighting autojump zsh-autosuggestions
+apt install zsh zsh-syntax-highlighting autojump zsh-autosuggestions
 mkdir ~/zsh
 wget -L https://raw.githubusercontent.com/ChrisTitusTech/zsh/master/aliasrc ~/zsh/aliasrc
 wget -L https://raw.githubusercontent.com/ChrisTitusTech/zsh/master/.zshrc
