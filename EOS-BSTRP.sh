@@ -120,6 +120,7 @@ touch "$HOME/.cache/zshhistory"
 git clone --depth=1 https://github.com/romkatv/powerlevel10k.git ~/powerlevel10k
 echo 'source ~/powerlevel10k/powerlevel10k.zsh-theme' >> ~/.zshrc
 chsh -s $(which zsh)
+echo "alias apt='apt-fast'" >> ~/zsh/aliasrc
 
 ##Reduce Overheating & Improve Battery Life##
 sudo add-apt-repository ppa:linrunner/tlp
