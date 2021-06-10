@@ -13,3 +13,8 @@ Elementary Os Bootstrap Script =
 ```bash
 wget -O - https://raw.githubusercontent.com/RetroTrigger/.Scripts/master/EOS-BSTRP.sh | bash
 ```
+
+ZSH Install Script
+```bash
+wget -O - https://raw.githubusercontent.com/RetroTrigger/.Scripts/master/zsh.sh | bash
+```
