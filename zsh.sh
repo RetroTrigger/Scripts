@@ -1,7 +1,7 @@
 #!/bin/bash
 
 sudo pacman -S --noconfirm --needed  yay zsh zsh-syntax-highlighting zsh-autosuggestions
-yay -s --noconfirm --needed autojump
+yay -S --noconfirm --needed autojump
 
 wget https://github.com.ChrisTitusTech/zsh/raw/master/.zshrc -O ~/.zshrc
 mkdir -p "$HOME/.zsh"
