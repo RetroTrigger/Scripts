@@ -18,3 +18,8 @@ ZSH Install Script
 ```bash
 wget -O - https://raw.githubusercontent.com/RetroTrigger/.Scripts/master/zsh.sh | bash
 ```
+
+Fedora Post Install Script
+```bash
+wget -O - https://raw.githubusercontent.com/RetroTrigger/.Scripts/master/fedora-post.sh | bash
+```
