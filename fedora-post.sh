@@ -1,15 +1,14 @@
 #!/bin/bash
 
-sudo dnf update -y
-
 sudo rpm -Uvh http://download1.rpmfusion.org/free/fedora/rpmfusion-free-release-$(rpm -E %fedora).noarch.rpm
 sudo rpm -Uvh http://download1.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-$(rpm -E %fedora).noarch.rpm
 
 echo "fastestmirror=true" | sudo tee --append /etc/dnf/dnf.conf
 echo "max_parallel_downloads=10" | sudo tee --append /etc/dnf/dnf.conf
 
-sudo dnf copr enable kwizart/fedy
-sudo dnf install plank variety fedy vlc steam dropbox filezilla nautilus-dropbox dnf-automatic terminator gnome-tweak-tool exa zsh zsh-syntax-highlighting zsh-autosuggestions autojump -y
+sudo dnf update -y
+
+sudo dnf install steam dropbox filezilla exa zsh zsh-syntax-highlighting zsh-autosuggestions autojump celluloid kitty -y
 
 sudo dnf install dnf-plugins-core
 sudo dnf config-manager --add-repo https://brave-browser-rpm-release.s3.brave.com/x86_64/
