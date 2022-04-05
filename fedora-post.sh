@@ -8,15 +8,15 @@ echo "max_parallel_downloads=10" | sudo tee --append /etc/dnf/dnf.conf
 
 sudo dnf update -y
 
-sudo dnf install steam dropbox filezilla exa zsh zsh-syntax-highlighting zsh-autosuggestions autojump celluloid kitty -y
+sudo dnf install git gnome-disk-utility steam dropbox filezilla exa zsh zsh-syntax-highlighting zsh-autosuggestions autojump celluloid kitty -y
 
 sudo dnf install dnf-plugins-core
 sudo dnf config-manager --add-repo https://brave-browser-rpm-release.s3.brave.com/x86_64/
 sudo rpm --import https://brave-browser-rpm-release.s3.brave.com/brave-core.asc
 sudo dnf install brave-browser -y
 
-sudo dnf groupupdate multimedia --setop="install_weak_deps=False" --exclude=PackageKit-gstreamer-plugin
-sudo dnf groupupdate sound-and-video
+sudo dnf groupupdate -y multimedia --setop="install_weak_deps=False" --exclude=PackageKit-gstreamer-plugin
+sudo dnf groupupdate -y sound-and-video
 
 sudo wget https://github.com/romkatv/powerlevel10k-media/raw/master/MesloLGS%20NF%20Regular.ttf -O /usr/share/fonts/MesloLGS%20NF%20Regular.ttf
 sudo wget https://github.com/romkatv/powerlevel10k-media/raw/master/MesloLGS%20NF%20Bold.ttf -O /usr/share/fonts/MesloLGS%20NF%20Bold.ttf
@@ -35,5 +35,3 @@ curl -1sLf \
    | sudo -E bash
 
 sudo dnf install -y balena-etcher-electron
-rm /etc/yum.repos.d/balena-etcher.repo
-rm /etc/yum.repos.d/balena-etcher-source.repo
