@@ -1,25 +1,24 @@
 #!/bin/bash
 
 # Install Flatpack 
-sudo apt install flatpak
+#sudo apt install flatpak
 flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
 
 # Install Flatpacks
-flatpak install flathub com.spotify.Client
-flatpak install flathub org.videolan.VLC
-flatpak install flathub com.visualstudio.code
-flatpak install flathub com.dropbox.Client
-flatpak install flathub org.filezillaproject.Filezilla
-flatpak install flathub io.github.shiftey.Desktop
-flatpak install flathub org.gnome.Lollypop
-flatpak install flathub com.github.Bleuzen.FFaudioConverter
-flatpak install flathub com.vinszent.GnomeTwitch
-flatpak install flathub com.makemkv.MakeMKV
-flatpak install flathub com.atlauncher.ATLauncher
-flatpak install flathub com.moonlight_stream.Moonlight
-flatpak install flathub com.brave.Browser
-flatpak install flathub org.deluge_torrent.deluge
-flatpak install flathub com.ultimaker.cura
+flatpak install -y flathub com.spotify.Client
+flatpak install -y flathub org.videolan.VLC
+flatpak install -y flathub com.visualstudio.code
+flatpak install -y flathub com.dropbox.Client
+flatpak install -y flathub org.filezillaproject.Filezilla
+flatpak install -y flathub io.github.shiftey.Desktop
+flatpak install -y flathub org.gnome.Lollypop
+flatpak install -y flathub com.github.Bleuzen.FFaudioConverter
+flatpak install -y flathub com.makemkv.MakeMKV
+flatpak install -y flathub com.atlauncher.ATLauncher
+flatpak install -y flathub com.moonlight_stream.Moonlight
+flatpak install -y flathub com.brave.Browser
+flatpak install -y flathub org.deluge_torrent.deluge
+flatpak install -y flathub com.ultimaker.cura
 
 # Reboot
 sudo reboot
