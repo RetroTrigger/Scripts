@@ -61,12 +61,14 @@ esac
 
 # Install packages
 TERM=kitty
+CMP=picom
 WM=bspwm
+FM=nautilus
 DM=sddm
 BROWSER=librewolf
 LAUNCHER=rofi
 FONTS=fonts-meslo-lgc
-PKGS="$TERM $WM $DM $BROWSER $LAUNCHER $FONTS"
+PKGS="$TERM $CMP $WM $FM $DM $BROWSER $LAUNCHER $FONTS"
 case "$OS" in
     Ubuntu|Linux\ Mint)
         sudo apt install $PKGS -y
