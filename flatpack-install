@@ -13,7 +13,7 @@ fi
 
 # Install Flatpak based on the distribution
 case $DISTRO in
-    ubuntu|debian)
+    ubuntu|debian|linuxmint)
         sudo apt update
         sudo apt install -y flatpak
         sudo apt install -y gnome-software-plugin-flatpak
@@ -47,10 +47,14 @@ case $DISTRO in
 esac
 
 ## Apply GTK System Themes To Flatpak Apps
-sudo flatpak override --filesystem=$HOME/.local/share/themes
-sudo flatpak override --filesystem=$HOME/.local/share/icons
-sudo flatpak override --env=GTK_THEME=Dracula
-sudo flatpak override --env=ICON_THEME=Dracula 
+#sudo flatpak override --filesystem=$HOME/.local/share/themes
+#sudo flatpak override --filesystem=$HOME/.local/share/icons
+#sudo flatpak override --env=GTK_THEME=Dracula
+#sudo flatpak override --env=ICON_THEME=Dracula 
+sudo flatpak override --filesystem=$HOME/.themes
+sudo flatpak override --filesystem=$HOME/.icons
+sudo flatpak override --env=GTK_THEME=Otis-forest
+sudo flatpak override --env=ICON_THEME=Flat-Remix-Grey-Light-darkPanel
 
 ## Install Flatpacks
 flatpak install -y --noninteractive flathub com.spotify.Client
