@@ -1,0 +1,60 @@
+#!/bin/bash
+
+# Disable IPv6
+echo "Disabling IPv6..."
+echo "net.ipv6.conf.all.disable_ipv6 = 1" | sudo tee -a /etc/sysctl.conf
+echo "net.ipv6.conf.default.disable_ipv6 = 1" | sudo tee -a /etc/sysctl.conf
+echo "net.ipv6.conf.lo.disable_ipv6 = 1" | sudo tee -a /etc/sysctl.conf
+sudo sysctl -p
+
+# Update and upgrade system
+sudo apt update && sudo apt upgrade -y
+
+# Install necessary software
+sudo apt install -y git docker docker-compose jq curl unzip
+
+# Clone the lancache monolithic repository
+git clone https://github.com/lancachenet/monolithic.git lancache
+
+# Navigate into the cloned directory
+cd lancache
+
+# Edit the .env file to set your configurations
+echo "Opening .env for edits. Save and exit (in nano, Ctrl+O to save, Ctrl+X to exit) once done."
+sleep 3
+nano .env
+
+# Prompt to continue
+read -p "Once you've edited and saved the .env file, press any key to continue..."
+
+# Start the lancache docker container
+docker-compose up -d
+
+# Display docker logs to ensure everything is running smoothly
+docker-compose logs
+
+#  Set containers to start on boot unless stopped
+sudo docker update --restart unless-stopped lancache_monolithic_1
+sudo docker update --restart unless-stopped lancache_dns_1
+
+# Download and extract latest release of each prefill script
+PREFILL_DIR=~/prefill
+mkdir -p $PREFILL_DIR
+
+declare -A REPOS
+REPOS["steam-lancache-prefill"]="tpill90/steam-lancache-prefill"
+REPOS["battlenet-lancache-prefill"]="tpill90/battlenet-lancache-prefill"
+REPOS["epic-lancache-prefill"]="tpill90/epic-lancache-prefill"
+
+for repo in "${!REPOS[@]}"; do
+    echo "Downloading latest release for $repo..."
+    LATEST_RELEASE=$(curl -s https://api.github.com/repos/${REPOS[$repo]}/releases/latest | jq -r .zipball_url)
+    curl -L -o "$PREFILL_DIR/$repo.zip" "$LATEST_RELEASE"
+    unzip "$PREFILL_DIR/$repo.zip" -d "$PREFILL_DIR"
+    rm "$PREFILL_DIR/$repo.zip"
+    echo "Extracted $repo to $PREFILL_DIR."
+done
+
+echo "All prefill scripts downloaded and extracted to $PREFILL_DIR."
+
+echo "Lancache installation complete!"
