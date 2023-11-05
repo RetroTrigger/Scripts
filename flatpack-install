@@ -70,4 +70,5 @@ flatpak install -y --noninteractive flathub fr.handbrake.ghb
 flatpak install -y --noninteractive flathub io.gdevs.GDLauncher
 flatpak install -y --noninteractive flathub com.moonlight_stream.Moonlight
 flatpak install -y --noninteractive flathub com.ultimaker.cura
+flatpak install -y --noninteractive flathub org.polymc.PolyMC
 
