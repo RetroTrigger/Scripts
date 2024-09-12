@@ -1,5 +1,12 @@
 #!/bin/bash
 
+# Check if running as root
+if [ "$EUID" -ne 0 ]; then 
+    SUDO="sudo"
+else
+    SUDO=""
+fi
+
 # Variables
 TEMPLATE_DIR="/var/lib/vz/template/imported_templates"
 NETWORK_SHARE="/mnt/templates"
@@ -12,10 +19,10 @@ install_nfs_utilities() {
 
         # Check if the system is Debian-based or Red Hat-based
         if [ -f /etc/debian_version ]; then
-            sudo apt update
-            sudo apt install -y nfs-kernel-server
+            $SUDO apt update
+            $SUDO apt install -y nfs-kernel-server
         elif [ -f /etc/redhat-release ]; then
-            sudo yum install -y nfs-utils
+            $SUDO yum install -y nfs-utils
         else
             echo "Unsupported operating system. Please install the NFS utilities manually."
             exit 1
@@ -25,8 +32,8 @@ install_nfs_utilities() {
     fi
 
     echo "Starting and enabling NFS server..."
-    sudo systemctl start nfs-kernel-server
-    sudo systemctl enable nfs-kernel-server
+    $SUDO systemctl start nfs-kernel-server
+    $SUDO systemctl enable nfs-kernel-server
 }
 
 # Ensure NFS utilities are installed before proceeding
@@ -37,9 +44,9 @@ mkdir -p $TEMPLATE_DIR
 chmod 775 $TEMPLATE_DIR
 
 # Share the folder via NFS
-echo "$TEMPLATE_DIR *(rw,sync,no_root_squash)" | sudo tee -a /etc/exports
-sudo exportfs -a
-sudo systemctl restart nfs-kernel-server
+echo "$TEMPLATE_DIR *(rw,sync,no_root_squash)" | $SUDO tee -a /etc/exports
+$SUDO exportfs -a
+$SUDO systemctl restart nfs-kernel-server
 
 # Function to convert OVA/VMDK files and create a VM
 convert_and_create_vm() {
