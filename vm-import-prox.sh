@@ -62,33 +62,4 @@ read -p "Press Enter to continue..."
 # Alternative Menu Using read and Case
 while true; do
     echo "1) Convert and create VM"
-    echo "2) Download VulnHub template"
-    echo "3) Manage VMs"
-    echo "4) Exit"
-    read -p "Please enter your choice: " choice
-
-    case $choice in
-        1)
-            read -p "Enter VM ID: " VMID
-            read -p "Enter VM name: " VM_NAME
-            read -p "Enter path to template file: " TEMPLATE_FILE
-            read -p "Enter storage type (1 for LVM-Thin, 2 for Directory): " STORAGE_TYPE
-            convert_and_create_vm $VMID $VM_NAME $TEMPLATE_FILE $STORAGE_TYPE
-            ;;
-        2)
-            download_vuln
-            ;;
-        3)
-            manage_vms
-            ;;
-        4)
-            echo "Exiting..."
-            break
-            ;;
-        *)
-            echo "Invalid option. Please try again."
-            ;;
-    esac
-done
-
-echo "Script execution completed."
+   
