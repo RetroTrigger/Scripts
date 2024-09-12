@@ -108,7 +108,7 @@ while true; do
             break
             ;;
         *)
-            echo "Invalid option."
+            echo "Invalid option. Please choose a valid option."
             ;;
     esac
 done
