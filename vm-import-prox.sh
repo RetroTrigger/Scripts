@@ -64,6 +64,7 @@ PS3='Please enter your choice: '
 options=("Convert and create VM" "Download VulnHub template" "Manage VMs" "Exit")
 select opt in "${options[@]}"
 do
+    echo "You chose option $REPLY ($opt)"
     case $opt in
         "Convert and create VM")
             read -p "Enter VM ID: " VMID
@@ -85,3 +86,5 @@ do
         *) echo "Invalid option $REPLY";;
     esac
 done
+
+echo "Script execution completed."
