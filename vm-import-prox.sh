@@ -19,6 +19,7 @@ install_nfs_utilities() {
 
         # Check if the system is Debian-based or Red Hat-based
         if [ -f /etc/debian_version ]; then
+            # Removing non-interactive flag to allow interaction
             $SUDO apt update
             $SUDO apt install -y nfs-kernel-server
         elif [ -f /etc/redhat-release ]; then
