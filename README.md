@@ -34,6 +34,12 @@ Use the following command to run the script easily in one run:
 wget -O - https://raw.githubusercontent.com/RetroTrigger/.Scripts/master/Ubuntu-setup.sh | bash
 ```
 
+Proxmox Share Script
+Use the following command to run the script easily in one run:
+```bash
+wget -O - https://raw.githubusercontent.com/RetroTrigger/.Scripts/master/proxmox_share_create.sh | bash
+```
+
 Ultimate-Linux-Gaming Script
 Use the following command to run the script easily in one run:
 ```bash
