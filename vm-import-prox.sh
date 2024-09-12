@@ -19,7 +19,6 @@ install_nfs_utilities() {
 
         # Check if the system is Debian-based or Red Hat-based
         if [ -f /etc/debian_version ]; then
-            # Removing non-interactive flag to allow interaction
             $SUDO apt update
             $SUDO apt install -y nfs-kernel-server
         elif [ -f /etc/redhat-release ]; then
@@ -44,9 +43,14 @@ install_nfs_utilities
 mkdir -p $TEMPLATE_DIR
 chmod 775 $TEMPLATE_DIR
 
-# Share the folder via NFS
-echo "$TEMPLATE_DIR *(rw,sync,no_root_squash)" | $SUDO tee -a /etc/exports
-$SUDO exportfs -a
+# Ensure no duplicate entries in /etc/exports
+EXPORT_ENTRY="$TEMPLATE_DIR *(rw,sync,no_subtree_check,no_root_squash)"
+if ! grep -qF "$EXPORT_ENTRY" /etc/exports; then
+    echo "$EXPORT_ENTRY" | $SUDO tee -a /etc/exports
+fi
+
+# Refresh NFS exports
+$SUDO exportfs -ra
 $SUDO systemctl restart nfs-kernel-server
 
 # Function to convert OVA/VMDK files and create a VM
