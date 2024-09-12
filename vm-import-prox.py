@@ -2,26 +2,42 @@ import os
 import sys
 import subprocess
 
+# Ensure pythondialog is installed
+def install_pythondialog():
+    try:
+        import dialog
+    except ImportError:
+        print("pythondialog is not installed. Attempting to install it...")
+        subprocess.check_call([sys.executable, "-m", "pip", "install", "pythondialog"])
+        print("pythondialog installed successfully. Please rerun the script.")
+        sys.exit(0)
+
+install_pythondialog()
+
+from dialog import Dialog
+
+d = Dialog(dialog="dialog")
+
 def check_root():
     if os.geteuid() != 0:
-        print("This script must be run as root. Please use sudo or run as root.")
+        d.msgbox("This script must be run as root. Please use sudo or run as root.")
         exit(1)
 
 def install_nfs_utilities():
     if subprocess.run(["which", "exportfs"], capture_output=True).returncode != 0:
-        print("NFS utilities are not installed. Installing NFS utilities...")
+        d.infobox("NFS utilities are not installed. Installing NFS utilities...")
         if os.path.exists("/etc/debian_version"):
             subprocess.run(["apt", "update"], check=True)
             subprocess.run(["apt", "install", "-y", "nfs-kernel-server"], check=True)
         elif os.path.exists("/etc/redhat-release"):
             subprocess.run(["yum", "install", "-y", "nfs-utils"], check=True)
         else:
-            print("Unsupported operating system. Please install the NFS utilities manually.")
+            d.msgbox("Unsupported operating system. Please install the NFS utilities manually.")
             exit(1)
     else:
-        print("NFS utilities are already installed.")
+        d.msgbox("NFS utilities are already installed.")
 
-    print("Starting and enabling NFS server...")
+    d.infobox("Starting and enabling NFS server...")
     subprocess.run(["systemctl", "start", "nfs-kernel-server"], check=True)
     subprocess.run(["systemctl", "enable", "nfs-kernel-server"], check=True)
 
@@ -41,7 +57,60 @@ def configure_nfs_exports(template_dir):
     subprocess.run(["exportfs", "-ra"], check=True)
     subprocess.run(["systemctl", "restart", "nfs-kernel-server"], check=True)
 
-def main(args):
+def menu():
+    code, choice = d.menu("Choose an option:", choices=[("1", "Convert and create VM"),
+                                                        ("2", "Download VulnHub template"),
+                                                        ("3", "Manage VMs"),
+                                                        ("4", "Exit")])
+
+    if code == d.OK:
+        if choice == "1":
+            convert_and_create_vm()
+        elif choice == "2":
+            download_vuln()
+        elif choice == "3":
+            manage_vms()
+        elif choice == "4":
+            d.msgbox("Exiting...")
+            sys.exit(0)
+        else:
+            d.msgbox("Invalid option. Please try again.")
+    else:
+        d.msgbox("Cancelled by user.")
+        sys.exit(1)
+
+def convert_and_create_vm():
+    code, vm_id = d.inputbox("Enter VM ID:")
+    if code == d.OK:
+        code, vm_name = d.inputbox("Enter VM name:")
+        if code == d.OK:
+            code, template_file = d.fselect("/path/to/templates", height=15, width=60)
+            if code == d.OK:
+                code, storage_type = d.radiolist("Select storage type:",
+                                                 choices=[("1", "LVM-Thin", True),
+                                                          ("2", "Directory", False)])
+                if code == d.OK:
+                    d.msgbox(f"Converting and creating VM {vm_name} with ID {vm_id}...")
+                else:
+                    d.msgbox("Storage type selection cancelled.")
+            else:
+                d.msgbox("Template file selection cancelled.")
+        else:
+            d.msgbox("VM name input cancelled.")
+    else:
+        d.msgbox("VM ID input cancelled.")
+
+def download_vuln():
+    code, download_link = d.inputbox("Enter the download link:")
+    if code == d.OK:
+        d.msgbox(f"Downloading template from {download_link}...")
+    else:
+        d.msgbox("Download cancelled.")
+
+def manage_vms():
+    d.msgbox("Managing VMs...")
+
+if __name__ == "__main__":
     check_root()
     install_nfs_utilities()
 
@@ -51,42 +120,6 @@ def main(args):
     os.chmod(template_dir, 0o775)
 
     configure_nfs_exports(template_dir)
-    print("NFS configuration is complete.")
+    d.msgbox("NFS configuration is complete. Proceeding to the menu...")
 
-    if len(args) < 2:
-        print("Usage: python3 script.py [option]")
-        print("Options:")
-        print("1 - Convert and create VM")
-        print("2 - Download VulnHub template")
-        print("3 - Manage VMs")
-        print("4 - Exit")
-        sys.exit(1)
-
-    option = args[1]
-    if option == "1":
-        convert_and_create_vm()
-    elif option == "2":
-        download_vuln()
-    elif option == "3":
-        manage_vms()
-    elif option == "4":
-        print("Exiting...")
-    else:
-        print("Invalid option. Please try again.")
-
-def convert_and_create_vm():
-    vm_id = input("Enter VM ID: ")
-    vm_name = input("Enter VM name: ")
-    template_file = input("Enter path to template file: ")
-    storage_type = input("Enter storage type (1 for LVM-Thin, 2 for Directory): ")
-    print(f"Converting and creating VM {vm_name} with ID {vm_id}...")
-
-def download_vuln():
-    download_link = input("Enter the download link: ")
-    print(f"Downloading template from {download_link}...")
-
-def manage_vms():
-    print("Managing VMs...")
-
-if __name__ == "__main__":
-    main(sys.argv)
+    menu()
