@@ -48,7 +48,7 @@ $SUDO sed -i "\|${TEMPLATE_DIR}|d" /etc/exports
 
 # Add the export entry if it doesn't already exist
 if ! grep -qF "$EXPORT_ENTRY" /etc/exports; then
-    echo "$EXPORT_ENTRY" | $SUDO tee -a /etc/exports
+    echo "$EXPORT_ENTRY" | $SUDO tee -a /etc/exports > /dev/null
 fi
 
 # Refresh NFS exports
