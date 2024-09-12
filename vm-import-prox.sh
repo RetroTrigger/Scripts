@@ -2,7 +2,12 @@
 
 # Check if running as root
 if [ "$EUID" -ne 0 ]; then 
-    SUDO="sudo"
+    if command -v sudo &> /dev/null; then
+        SUDO="sudo"
+    else
+        echo "This script requires sudo privileges, but sudo is not installed. Please install sudo or run this script as root."
+        exit 1
+    fi
 else
     SUDO=""
 fi
@@ -57,7 +62,6 @@ convert_and_create_vm() {
 
     echo "Converting and creating VM with ID $VMID and name $VM_NAME..."
 
-    # Check if the file is OVA or VMDK and convert accordingly
     if [[ $TEMPLATE_FILE == *.ova ]]; then
         echo "Converting OVA file..."
         qm importovf $VMID $TEMPLATE_FILE $STORAGE --format qcow2
