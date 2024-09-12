@@ -45,14 +45,18 @@ def configure_nfs_exports(template_dir):
     subprocess.run(["exportfs", "-ra"], check=True)
     subprocess.run(["systemctl", "restart", "nfs-kernel-server"], check=True)
 
-# Menu function
+# Menu function with error handling
 def menu():
     while True:
         print("1) Convert and create VM")
         print("2) Download VulnHub template")
         print("3) Manage VMs")
         print("4) Exit")
-        choice = input("Please enter your choice: ")
+        try:
+            choice = input("Please enter your choice: ")
+        except EOFError:
+            print("\nError: No input provided. Exiting the script.")
+            break
 
         if choice == "1":
             convert_and_create_vm()
@@ -68,20 +72,23 @@ def menu():
 
 # Placeholder functions for menu options
 def convert_and_create_vm():
-    vm_id = input("Enter VM ID: ")
-    vm_name = input("Enter VM name: ")
-    template_file = input("Enter path to template file: ")
-    storage_type = input("Enter storage type (1 for LVM-Thin, 2 for Directory): ")
-    # Implement the conversion and VM creation logic here
-    print(f"Converting and creating VM {vm_name} with ID {vm_id}...")
+    try:
+        vm_id = input("Enter VM ID: ")
+        vm_name = input("Enter VM name: ")
+        template_file = input("Enter path to template file: ")
+        storage_type = input("Enter storage type (1 for LVM-Thin, 2 for Directory): ")
+        print(f"Converting and creating VM {vm_name} with ID {vm_id}...")
+    except EOFError:
+        print("\nError: No input provided for VM creation.")
 
 def download_vuln():
-    download_link = input("Enter the download link: ")
-    # Implement the template download logic here
-    print(f"Downloading template from {download_link}...")
+    try:
+        download_link = input("Enter the download link: ")
+        print(f"Downloading template from {download_link}...")
+    except EOFError:
+        print("\nError: No input provided for download link.")
 
 def manage_vms():
-    # Implement the VM management logic here
     print("Managing VMs...")
 
 if __name__ == "__main__":
