@@ -2,12 +2,7 @@
 
 # Check if running as root
 if [ "$EUID" -ne 0 ]; then 
-    if command -v sudo &> /dev/null; then
-        SUDO="sudo"
-    else
-        echo "This script requires sudo privileges, but sudo is not installed. Please install sudo or run this script as root."
-        exit 1
-    fi
+    SUDO="sudo"
 else
     SUDO=""
 fi
