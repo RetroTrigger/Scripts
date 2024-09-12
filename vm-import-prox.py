@@ -2,6 +2,15 @@ import os
 import sys
 import subprocess
 
+# Ensure pip is installed
+def install_pip():
+    try:
+        subprocess.check_call([sys.executable, "-m", "ensurepip", "--upgrade"])
+        print("pip installed successfully.")
+    except subprocess.CalledProcessError:
+        print("Failed to install pip automatically. Please install pip manually and rerun the script.")
+        sys.exit(1)
+
 # Ensure pythondialog is installed
 def install_pythondialog():
     try:
@@ -11,9 +20,9 @@ def install_pythondialog():
 
         # Check if pip is installed, if not, install pip
         try:
-            subprocess.check_call([sys.executable, "-m", "ensurepip", "--upgrade"])
+            install_pip()
         except subprocess.CalledProcessError:
-            print("Failed to install pip automatically. Please install pip manually and rerun the script.")
+            print("Failed to install pip. Please install pip manually and rerun the script.")
             sys.exit(1)
 
         # Now, try to install pythondialog
