@@ -39,3 +39,8 @@ Use the following command to run the script easily in one run:
 ```bash
 wget -O - https://raw.githubusercontent.com/RetroTrigger/.Scripts/master/Ultimate-Linux-Gaming.sh | bash
 ```
+Proxmox VM Coversion And Import Script
+Use the following command to run the script easily in one run:
+```bash
+wget -O - https://raw.githubusercontent.com/RetroTrigger/.Scripts/master/vm-import-prox.sh | bash
+```
