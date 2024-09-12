@@ -8,9 +8,22 @@ def install_pythondialog():
         import dialog
     except ImportError:
         print("pythondialog is not installed. Attempting to install it...")
-        subprocess.check_call([sys.executable, "-m", "pip", "install", "pythondialog"])
-        print("pythondialog installed successfully. Please rerun the script.")
-        sys.exit(0)
+
+        # Check if pip is installed, if not, install pip
+        try:
+            subprocess.check_call([sys.executable, "-m", "ensurepip", "--upgrade"])
+        except subprocess.CalledProcessError:
+            print("Failed to install pip automatically. Please install pip manually and rerun the script.")
+            sys.exit(1)
+
+        # Now, try to install pythondialog
+        try:
+            subprocess.check_call([sys.executable, "-m", "pip", "install", "pythondialog"])
+            print("pythondialog installed successfully. Please rerun the script.")
+            sys.exit(0)
+        except subprocess.CalledProcessError:
+            print("Failed to install pythondialog. Please install it manually and rerun the script.")
+            sys.exit(1)
 
 install_pythondialog()
 
