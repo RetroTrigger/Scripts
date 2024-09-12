@@ -9,7 +9,7 @@ fi
 
 # Variables
 TEMPLATE_DIR="/var/lib/vz/template/imported_templates"
-NETWORK_SHARE="/mnt/templates"
+EXPORT_ENTRY="$TEMPLATE_DIR *(rw,sync,no_subtree_check,no_root_squash)"
 STORAGE="local-lvm"  # Proxmox storage to use
 
 # Function to check and install NFS utilities
@@ -43,8 +43,10 @@ install_nfs_utilities
 mkdir -p $TEMPLATE_DIR
 chmod 775 $TEMPLATE_DIR
 
-# Ensure no duplicate entries in /etc/exports
-EXPORT_ENTRY="$TEMPLATE_DIR *(rw,sync,no_subtree_check,no_root_squash)"
+# Remove any previous instances of the export entry to avoid duplicates
+$SUDO sed -i "\|${TEMPLATE_DIR}|d" /etc/exports
+
+# Add the export entry if it doesn't already exist
 if ! grep -qF "$EXPORT_ENTRY" /etc/exports; then
     echo "$EXPORT_ENTRY" | $SUDO tee -a /etc/exports
 fi
