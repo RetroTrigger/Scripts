@@ -5,10 +5,10 @@ TEMPLATE_DIR="/var/lib/vz/template/imported_templates"
 NETWORK_SHARE="/mnt/templates"
 STORAGE="local-lvm"  # Proxmox storage to use
 
-# Function to check and install NFS server
-install_nfs_server() {
-    if ! command -v nfsd &> /dev/null; then
-        echo "NFS server is not installed. Installing NFS server..."
+# Function to check and install NFS utilities
+install_nfs_utilities() {
+    if ! command -v exportfs &> /dev/null; then
+        echo "NFS utilities are not installed. Installing NFS utilities..."
 
         # Check if the system is Debian-based or Red Hat-based
         if [ -f /etc/debian_version ]; then
@@ -17,24 +17,24 @@ install_nfs_server() {
         elif [ -f /etc/redhat-release ]; then
             sudo yum install -y nfs-utils
         else
-            echo "Unsupported operating system. Please install the NFS server manually."
+            echo "Unsupported operating system. Please install the NFS utilities manually."
             exit 1
         fi
     else
-        echo "NFS server is already installed."
+        echo "NFS utilities are already installed."
     fi
 
-    echo "Starting NFS server..."
+    echo "Starting and enabling NFS server..."
     sudo systemctl start nfs-kernel-server
     sudo systemctl enable nfs-kernel-server
 }
 
+# Ensure NFS utilities are installed before proceeding
+install_nfs_utilities
+
 # Create and share the folder
 mkdir -p $TEMPLATE_DIR
 chmod 775 $TEMPLATE_DIR
-
-# Check and install NFS server
-install_nfs_server
 
 # Share the folder via NFS
 echo "$TEMPLATE_DIR *(rw,sync,no_root_squash)" | sudo tee -a /etc/exports
