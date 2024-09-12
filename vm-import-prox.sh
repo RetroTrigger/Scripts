@@ -59,6 +59,11 @@ $SUDO systemctl restart nfs-kernel-server
 echo "NFS configuration is complete. Proceeding to the menu..."
 read -p "Press Enter to continue..."
 
+# Debugging output
+echo "Terminal: $TERM"
+echo "Shell: $SHELL"
+echo "User: $(whoami)"
+
 # Main menu using 'select'
 PS3='Please enter your choice: '
 options=("Convert and create VM" "Download VulnHub template" "Manage VMs" "Exit")
