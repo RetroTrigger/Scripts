@@ -81,34 +81,29 @@ manage_vms() {
     esac
 }
 
-# Main menu
-while true; do
-    echo "1) Convert and create VM"
-    echo "2) Download VulnHub template"
-    echo "3) Manage VMs"
-    echo "x) Exit"
-    read -p "Choose an option: " OPTION
-
-    case $OPTION in
-        1)
+# Main menu using 'select'
+PS3='Please enter your choice: '
+options=("Convert and create VM" "Download VulnHub template" "Manage VMs" "Exit")
+select opt in "${options[@]}"
+do
+    case $opt in
+        "Convert and create VM")
             read -p "Enter VM ID: " VMID
             read -p "Enter VM name: " VM_NAME
             read -p "Enter path to template file: " TEMPLATE_FILE
             read -p "Enter storage type (1 for LVM-Thin, 2 for Directory): " STORAGE_TYPE
             convert_and_create_vm $VMID $VM_NAME $TEMPLATE_FILE $STORAGE_TYPE
             ;;
-        2)
+        "Download VulnHub template")
             download_vuln
             ;;
-        3)
+        "Manage VMs")
             manage_vms
             ;;
-        x)
+        "Exit")
             echo "Exiting..."
             break
             ;;
-        *)
-            echo "Invalid option. Please choose a valid option."
-            ;;
+        *) echo "Invalid option $REPLY";;
     esac
 done
