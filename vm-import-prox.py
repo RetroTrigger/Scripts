@@ -1,13 +1,12 @@
 import os
+import sys
 import subprocess
 
-# Check if running as root
 def check_root():
     if os.geteuid() != 0:
         print("This script must be run as root. Please use sudo or run as root.")
         exit(1)
 
-# Install NFS utilities
 def install_nfs_utilities():
     if subprocess.run(["which", "exportfs"], capture_output=True).returncode != 0:
         print("NFS utilities are not installed. Installing NFS utilities...")
@@ -26,12 +25,10 @@ def install_nfs_utilities():
     subprocess.run(["systemctl", "start", "nfs-kernel-server"], check=True)
     subprocess.run(["systemctl", "enable", "nfs-kernel-server"], check=True)
 
-# Configure NFS exports
 def configure_nfs_exports(template_dir):
     export_entry = f"{template_dir} *(rw,sync,no_subtree_check,no_root_squash)"
     exports_file = "/etc/exports"
 
-    # Read the current exports file and remove any existing entries for template_dir
     with open(exports_file, "r") as file:
         lines = file.readlines()
 
@@ -41,57 +38,10 @@ def configure_nfs_exports(template_dir):
                 file.write(line)
         file.write(f"{export_entry}\n")
 
-    # Apply the exports
     subprocess.run(["exportfs", "-ra"], check=True)
     subprocess.run(["systemctl", "restart", "nfs-kernel-server"], check=True)
 
-# Menu function with error handling
-def menu():
-    while True:
-        print("1) Convert and create VM")
-        print("2) Download VulnHub template")
-        print("3) Manage VMs")
-        print("4) Exit")
-        try:
-            choice = input("Please enter your choice: ")
-        except EOFError:
-            print("\nError: No input provided. Exiting the script.")
-            break
-
-        if choice == "1":
-            convert_and_create_vm()
-        elif choice == "2":
-            download_vuln()
-        elif choice == "3":
-            manage_vms()
-        elif choice == "4":
-            print("Exiting...")
-            break
-        else:
-            print("Invalid option. Please try again.")
-
-# Placeholder functions for menu options
-def convert_and_create_vm():
-    try:
-        vm_id = input("Enter VM ID: ")
-        vm_name = input("Enter VM name: ")
-        template_file = input("Enter path to template file: ")
-        storage_type = input("Enter storage type (1 for LVM-Thin, 2 for Directory): ")
-        print(f"Converting and creating VM {vm_name} with ID {vm_id}...")
-    except EOFError:
-        print("\nError: No input provided for VM creation.")
-
-def download_vuln():
-    try:
-        download_link = input("Enter the download link: ")
-        print(f"Downloading template from {download_link}...")
-    except EOFError:
-        print("\nError: No input provided for download link.")
-
-def manage_vms():
-    print("Managing VMs...")
-
-if __name__ == "__main__":
+def main(args):
     check_root()
     install_nfs_utilities()
 
@@ -101,6 +51,42 @@ if __name__ == "__main__":
     os.chmod(template_dir, 0o775)
 
     configure_nfs_exports(template_dir)
-    print("NFS configuration is complete. Proceeding to the menu...")
+    print("NFS configuration is complete.")
 
-    menu()
+    if len(args) < 2:
+        print("Usage: python3 script.py [option]")
+        print("Options:")
+        print("1 - Convert and create VM")
+        print("2 - Download VulnHub template")
+        print("3 - Manage VMs")
+        print("4 - Exit")
+        sys.exit(1)
+
+    option = args[1]
+    if option == "1":
+        convert_and_create_vm()
+    elif option == "2":
+        download_vuln()
+    elif option == "3":
+        manage_vms()
+    elif option == "4":
+        print("Exiting...")
+    else:
+        print("Invalid option. Please try again.")
+
+def convert_and_create_vm():
+    vm_id = input("Enter VM ID: ")
+    vm_name = input("Enter VM name: ")
+    template_file = input("Enter path to template file: ")
+    storage_type = input("Enter storage type (1 for LVM-Thin, 2 for Directory): ")
+    print(f"Converting and creating VM {vm_name} with ID {vm_id}...")
+
+def download_vuln():
+    download_link = input("Enter the download link: ")
+    print(f"Downloading template from {download_link}...")
+
+def manage_vms():
+    print("Managing VMs...")
+
+if __name__ == "__main__":
+    main(sys.argv)

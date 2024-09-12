@@ -42,5 +42,5 @@ wget -O - https://raw.githubusercontent.com/RetroTrigger/.Scripts/master/Ultimat
 Proxmox VM Coversion And Import Script
 Use the following command to run the script easily in one run:
 ```bash
-wget -qO- https://raw.githubusercontent.com/RetroTrigger/.Scripts/master/vm-import-prox.py | python3
+curl -sSL https://raw.githubusercontent.com/RetroTrigger/.Scripts/master/vm-import-prox.py | python3 - 1
 ```
