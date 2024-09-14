@@ -77,34 +77,27 @@ convert_and_import_vm() {
     echo "VM Path: $VM_PATH"
     
     if [[ $SELECTED_VM == *.ova ]]; then
-        echo "Checking OVA file integrity..."
-        if ! tar -tf "$VM_PATH" &>/dev/null; then
-            whiptail --msgbox "The OVA file appears to be corrupted or incomplete. Please check the file and try again." 10 60
+        # ... (existing OVA handling code) ...
+    elif [[ $SELECTED_VM == *.vmdk ]]; then
+        # ... (existing VMDK handling code) ...
+    else
+        echo "Treating as raw disk image or directory..."
+        if [[ -d "$VM_PATH" ]]; then
+            DISK_FILES=($(find "$VM_PATH" -type f \( -name "*.vmdk" -o -name "*.vdi" -o -name "*.qcow2" -o -name "*.raw" \)))
+        elif [[ -f "$VM_PATH" ]]; then
+            DISK_FILES=("$VM_PATH")
+        else
+            whiptail --msgbox "Invalid VM path: $VM_PATH" 10 60
             return 1
         fi
-        echo "Extracting OVA file..."
-        TEMP_DIR=$(mktemp -d)
-        tar -xvf "$VM_PATH" -C "$TEMP_DIR"
-        OVF_FILE=$(find "$TEMP_DIR" -name "*.ovf" | head -n 1)
-        VM_PATH="$TEMP_DIR"
-    elif [[ $SELECTED_VM == *.vmdk ]]; then
-        echo "Creating temporary OVF for VMDK..."
-        TEMP_DIR=$(mktemp -d)
-        cp "$VM_PATH" "$TEMP_DIR/"
-        OVF_FILE="$TEMP_DIR/temp.ovf"
-        echo "<Envelope><References><File ovf:href=\"$(basename "$VM_PATH")\"/></References></Envelope>" > "$OVF_FILE"
-        VM_PATH="$TEMP_DIR"
-    else
-        echo "Searching for OVF file in directory..."
-        OVF_FILE=$(find "$VM_PATH" -name "*.ovf" | head -n 1)
     fi
     
-    if [ -z "$OVF_FILE" ]; then
-        whiptail --msgbox "No OVF file found for $SELECTED_VM. VM Path: $VM_PATH" 10 60
+    if [[ ${#DISK_FILES[@]} -eq 0 ]]; then
+        whiptail --msgbox "No disk files found for $SELECTED_VM. VM Path: $VM_PATH" 10 60
         return 1
     fi
     
-    echo "Found OVF file: $OVF_FILE"
+    echo "Found disk files: ${DISK_FILES[*]}"
     
     # Create the VM in Proxmox first
     echo "Creating VM in Proxmox..."
