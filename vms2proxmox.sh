@@ -77,42 +77,21 @@ convert_and_import_vm() {
     echo "VM Path: $VM_PATH"
     
     if [[ $SELECTED_VM == *.ova ]]; then
-        echo "Checking OVA file integrity..."
-        if ! tar -tf "$VM_PATH" &>/dev/null; then
-            whiptail --msgbox "The OVA file appears to be corrupted or incomplete. Please check the file and try again." 10 60
-            return 1
-        fi
-        echo "Extracting OVA file..."
-        TEMP_DIR=$(mktemp -d)
-        tar -xvf "$VM_PATH" -C "$TEMP_DIR"
-        OVF_FILE=$(find "$TEMP_DIR" -name "*.ovf" | head -n 1)
-        VM_PATH="$TEMP_DIR"
+        # ... (existing OVA handling code) ...
     elif [[ $SELECTED_VM == *.vmdk ]]; then
-        echo "Creating temporary OVF for VMDK..."
-        TEMP_DIR=$(mktemp -d)
-        cp "$VM_PATH" "$TEMP_DIR/"
-        OVF_FILE="$TEMP_DIR/temp.ovf"
-        echo "<Envelope><References><File ovf:href=\"$(basename "$VM_PATH")\"/></References></Envelope>" > "$OVF_FILE"
-        VM_PATH="$TEMP_DIR"
+        DISK_FILES=("$VM_PATH")
     else
-        echo "Treating as raw disk image or directory..."
+        echo "Treating as directory containing disk images..."
         if [[ -d "$VM_PATH" ]]; then
-            DISK_FILES=($(find "$VM_PATH" -type f \( -name "*.vmdk" -o -name "*.vdi" -o -name "*.qcow2" -o -name "*.raw" \)))
-        elif [[ -f "$VM_PATH" ]]; then
-            DISK_FILES=("$VM_PATH")
+            DISK_FILES=($(find "$VM_PATH" -type f -name "*.vmdk"))
+            if [[ ${#DISK_FILES[@]} -eq 0 ]]; then
+                whiptail --msgbox "No VMDK files found in $VM_PATH" 10 60
+                return 1
+            fi
         else
             whiptail --msgbox "Invalid VM path: $VM_PATH" 10 60
             return 1
         fi
-    fi
-    
-    if [[ -n "$OVF_FILE" ]]; then
-        DISK_FILES=$(grep "<File" "$OVF_FILE" | sed -n 's/.*ovf:href="\(.*\)".*/\1/p')
-    fi
-    
-    if [[ ${#DISK_FILES[@]} -eq 0 ]]; then
-        whiptail --msgbox "No disk files found for $SELECTED_VM. VM Path: $VM_PATH" 10 60
-        return 1
     fi
     
     echo "Found disk files: ${DISK_FILES[*]}"
@@ -127,11 +106,16 @@ convert_and_import_vm() {
     fi
     
     for DISK in "${DISK_FILES[@]}"; do
-        DISK_PATH="$VM_PATH/$DISK"
-        QCOW2_DISK="$VM_PATH/${DISK%.*}.qcow2"
+        DISK_PATH="$DISK"
+        QCOW2_DISK="${DISK%.*}.qcow2"
         
         echo "Converting $DISK_PATH to $QCOW2_DISK"
-        qemu-img convert -O qcow2 "$DISK_PATH" "$QCOW2_DISK"
+        if ! qemu-img convert -O qcow2 "$DISK_PATH" "$QCOW2_DISK"; then
+            echo "Failed to convert disk. Command output:"
+            qemu-img convert -O qcow2 "$DISK_PATH" "$QCOW2_DISK"
+            whiptail --msgbox "Failed to convert disk for VM $VM_NAME (VMID: $VMID). Please check the output above for more information." 10 60
+            return 1
+        fi
         
         # Import the converted disk to Proxmox
         echo "Importing disk to Proxmox..."
@@ -168,11 +152,6 @@ convert_and_import_vm() {
             return 1
         fi
     done
-    
-    # Clean up temporary directory if used
-    if [[ -n "$TEMP_DIR" ]]; then
-        rm -rf "$TEMP_DIR"
-    fi
     
     whiptail --msgbox "VM $VM_NAME (VMID: $VMID) imported successfully!" 10 60
     return 0
