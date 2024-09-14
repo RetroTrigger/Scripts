@@ -1,5 +1,5 @@
 #!/bin/bash
-set -x
+
 set -e
 
 # Function to check and install dependencies
@@ -46,27 +46,6 @@ get_next_vmid() {
     echo $vmid
 }
 
-# Get Proxmox storages and node
-PROXMOX_STORAGES=($(get_proxmox_storages))
-PROXMOX_NODE=$(get_proxmox_node)
-
-# Display available storages and ask user to choose
-STORAGE_OPTIONS=()
-for i in "${!PROXMOX_STORAGES[@]}"; do
-    STORAGE_OPTIONS+=("$i" "${PROXMOX_STORAGES[$i]}")
-done
-STORAGE_CHOICE=$(whiptail --title "Proxmox Storage Selection" --menu "Choose a Proxmox storage:" 20 60 10 "${STORAGE_OPTIONS[@]}" 3>&1 1>&2 2>&3)
-PROXMOX_STORAGE="${PROXMOX_STORAGES[$STORAGE_CHOICE]}"
-
-# Display available VMs and ask user to choose
-VM_FILES=($(find "$SOURCE_DIR" -maxdepth 1 \( -name "*.ova" -o -name "*.vmdk" -o -type d \) -printf '%f\n'))
-VM_OPTIONS=()
-for i in "${!VM_FILES[@]}"; do
-    VM_OPTIONS+=("$i" "${VM_FILES[$i]}")
-done
-VM_CHOICE=$(whiptail --title "VM Selection" --menu "Choose a VM to convert and import:" 20 60 10 "${VM_OPTIONS[@]}" 3>&1 1>&2 2>&3)
-SELECTED_VM="${VM_FILES[$VM_CHOICE]}"
-
 # Function to convert and import a VM
 convert_and_import_vm() {
     VM_PATH="$SOURCE_DIR/$SELECTED_VM"
@@ -77,9 +56,23 @@ convert_and_import_vm() {
     echo "VM Path: $VM_PATH"
     
     if [[ $SELECTED_VM == *.ova ]]; then
-        # ... (existing OVA handling code) ...
+        echo "Checking OVA file integrity..."
+        if ! tar -tf "$VM_PATH" &>/dev/null; then
+            whiptail --msgbox "The OVA file appears to be corrupted or incomplete. Please check the file and try again." 10 60
+            return 1
+        fi
+        echo "Extracting OVA file..."
+        TEMP_DIR=$(mktemp -d)
+        tar -xvf "$VM_PATH" -C "$TEMP_DIR"
+        OVF_FILE=$(find "$TEMP_DIR" -name "*.ovf" | head -n 1)
+        VM_PATH="$TEMP_DIR"
     elif [[ $SELECTED_VM == *.vmdk ]]; then
-        DISK_FILES=("$VM_PATH")
+        echo "Creating temporary OVF for VMDK..."
+        TEMP_DIR=$(mktemp -d)
+        cp "$VM_PATH" "$TEMP_DIR/"
+        OVF_FILE="$TEMP_DIR/temp.ovf"
+        echo "<Envelope><References><File ovf:href=\"$(basename "$VM_PATH")\"/></References></Envelope>" > "$OVF_FILE"
+        VM_PATH="$TEMP_DIR"
     else
         echo "Treating as directory containing disk images..."
         if [[ -d "$VM_PATH" ]]; then
@@ -94,6 +87,10 @@ convert_and_import_vm() {
         fi
     fi
     
+    if [[ -n "$OVF_FILE" ]]; then
+        DISK_FILES=$(grep "<File" "$OVF_FILE" | sed -n 's/.*ovf:href="\(.*\)".*/\1/p')
+    fi
+    
     echo "Found disk files: ${DISK_FILES[*]}"
     
     # Create the VM in Proxmox first
@@ -105,9 +102,14 @@ convert_and_import_vm() {
         return 1
     fi
     
+    echo "Debug: DISK_FILES contents:"
+    for debug_disk in "${DISK_FILES[@]}"; do
+        echo "  $debug_disk"
+    done
+    
     for DISK in "${DISK_FILES[@]}"; do
-        DISK_PATH="$DISK"
-        QCOW2_DISK="${DISK%.*}.qcow2"
+        DISK_PATH="$VM_PATH/$DISK"
+        QCOW2_DISK="${DISK_PATH%.*}.qcow2"
         
         echo "Converting $DISK_PATH to $QCOW2_DISK"
         if ! qemu-img convert -O qcow2 "$DISK_PATH" "$QCOW2_DISK"; then
@@ -153,9 +155,35 @@ convert_and_import_vm() {
         fi
     done
     
+    # Clean up temporary directory if used
+    if [[ -n "$TEMP_DIR" ]]; then
+        rm -rf "$TEMP_DIR"
+    fi
+    
     whiptail --msgbox "VM $VM_NAME (VMID: $VMID) imported successfully!" 10 60
     return 0
 }
+
+# Get Proxmox storages and node
+PROXMOX_STORAGES=($(get_proxmox_storages))
+PROXMOX_NODE=$(get_proxmox_node)
+
+# Display available storages and ask user to choose
+STORAGE_OPTIONS=()
+for i in "${!PROXMOX_STORAGES[@]}"; do
+    STORAGE_OPTIONS+=("$i" "${PROXMOX_STORAGES[$i]}")
+done
+STORAGE_CHOICE=$(whiptail --title "Proxmox Storage Selection" --menu "Choose a Proxmox storage:" 20 60 10 "${STORAGE_OPTIONS[@]}" 3>&1 1>&2 2>&3)
+PROXMOX_STORAGE="${PROXMOX_STORAGES[$STORAGE_CHOICE]}"
+
+# Display available VMs and ask user to choose
+VM_FILES=($(find "$SOURCE_DIR" -maxdepth 1 \( -name "*.ova" -o -name "*.vmdk" -o -type d \) -printf '%f\n'))
+VM_OPTIONS=()
+for i in "${!VM_FILES[@]}"; do
+    VM_OPTIONS+=("$i" "${VM_FILES[$i]}")
+done
+VM_CHOICE=$(whiptail --title "VM Selection" --menu "Choose a VM to convert and import:" 20 60 10 "${VM_OPTIONS[@]}" 3>&1 1>&2 2>&3)
+SELECTED_VM="${VM_FILES[$VM_CHOICE]}"
 
 # Confirm settings with the user
 if whiptail --yesno "Please confirm the following settings:\n\nSource directory: $SOURCE_DIR\nSelected VM: $SELECTED_VM\nProxmox storage: $PROXMOX_STORAGE\nProxmox node: $PROXMOX_NODE" 20 60; then
