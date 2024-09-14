@@ -77,9 +77,23 @@ convert_and_import_vm() {
     echo "VM Path: $VM_PATH"
     
     if [[ $SELECTED_VM == *.ova ]]; then
-        # ... (existing OVA handling code) ...
+        echo "Checking OVA file integrity..."
+        if ! tar -tf "$VM_PATH" &>/dev/null; then
+            whiptail --msgbox "The OVA file appears to be corrupted or incomplete. Please check the file and try again." 10 60
+            return 1
+        fi
+        echo "Extracting OVA file..."
+        TEMP_DIR=$(mktemp -d)
+        tar -xvf "$VM_PATH" -C "$TEMP_DIR"
+        OVF_FILE=$(find "$TEMP_DIR" -name "*.ovf" | head -n 1)
+        VM_PATH="$TEMP_DIR"
     elif [[ $SELECTED_VM == *.vmdk ]]; then
-        # ... (existing VMDK handling code) ...
+        echo "Creating temporary OVF for VMDK..."
+        TEMP_DIR=$(mktemp -d)
+        cp "$VM_PATH" "$TEMP_DIR/"
+        OVF_FILE="$TEMP_DIR/temp.ovf"
+        echo "<Envelope><References><File ovf:href=\"$(basename "$VM_PATH")\"/></References></Envelope>" > "$OVF_FILE"
+        VM_PATH="$TEMP_DIR"
     else
         echo "Treating as raw disk image or directory..."
         if [[ -d "$VM_PATH" ]]; then
@@ -90,6 +104,10 @@ convert_and_import_vm() {
             whiptail --msgbox "Invalid VM path: $VM_PATH" 10 60
             return 1
         fi
+    fi
+    
+    if [[ -n "$OVF_FILE" ]]; then
+        DISK_FILES=$(grep "<File" "$OVF_FILE" | sed -n 's/.*ovf:href="\(.*\)".*/\1/p')
     fi
     
     if [[ ${#DISK_FILES[@]} -eq 0 ]]; then
@@ -108,20 +126,7 @@ convert_and_import_vm() {
         return 1
     fi
     
-    # Verify that the VM configuration file exists
-    if [ ! -f "/etc/pve/qemu-server/$VMID.conf" ]; then
-        whiptail --msgbox "VM configuration file for $VM_NAME (VMID: $VMID) was not created. Please check Proxmox logs for more information." 10 60
-        return 1
-    fi
-    
-    # Convert VMDK or VDI to QCOW2 format and import
-    DISK_FILES=$(grep "<File" "$OVF_FILE" | sed -n 's/.*ovf:href="\(.*\)".*/\1/p')
-    if [ -z "$DISK_FILES" ]; then
-        whiptail --msgbox "No disk files found in OVF for $SELECTED_VM. OVF Path: $OVF_FILE" 10 60
-        return 1
-    fi
-    
-    for DISK in $DISK_FILES; do
+    for DISK in "${DISK_FILES[@]}"; do
         DISK_PATH="$VM_PATH/$DISK"
         QCOW2_DISK="$VM_PATH/${DISK%.*}.qcow2"
         
