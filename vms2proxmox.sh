@@ -156,7 +156,6 @@ convert_and_import_vm() {
     whiptail --msgbox "VM $VM_NAME (VMID: $VMID) imported successfully!" 10 60
     return 0
 }
-}
 
 # Confirm settings with the user
 if whiptail --yesno "Please confirm the following settings:\n\nSource directory: $SOURCE_DIR\nSelected VM: $SELECTED_VM\nProxmox storage: $PROXMOX_STORAGE\nProxmox node: $PROXMOX_NODE" 20 60; then
