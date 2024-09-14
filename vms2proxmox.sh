@@ -136,39 +136,40 @@ convert_and_import_vm() {
         qemu-img convert -O qcow2 "$DISK_PATH" "$QCOW2_DISK"
         
         # Import the converted disk to Proxmox
-    echo "Importing disk to Proxmox..."
-    IMPORT_OUTPUT=$(qm importdisk "$VMID" "$QCOW2_DISK" "$PROXMOX_STORAGE" -format qcow2)
-    if [[ $? -ne 0 ]]; then
-        echo "Failed to import disk. Command output:"
-        echo "$IMPORT_OUTPUT"
-        whiptail --msgbox "Failed to import disk for VM $VM_NAME (VMID: $VMID). Please check the output above for more information." 10 60
-        return 1
-    fi
-
-    # Extract the imported disk name from the output
-    IMPORTED_DISK=$(echo "$IMPORT_OUTPUT" | grep -oP "(?<=as ').*(?=')")
-    if [[ -z "$IMPORTED_DISK" ]]; then
-        whiptail --msgbox "Failed to extract imported disk name for VM $VM_NAME (VMID: $VMID)." 10 60
-        return 1
-    fi
-
-    # Attach the imported disk to the VM
-    echo "Attaching imported disk to VM..."
-    if ! qm set "$VMID" --scsi0 "$IMPORTED_DISK"; then
-        echo "Failed to attach disk. Command output:"
-        qm set "$VMID" --scsi0 "$IMPORTED_DISK"
-        whiptail --msgbox "Failed to attach disk to VM $VM_NAME (VMID: $VMID). Please check the output above for more information." 10 60
-        return 1
-    fi
-
-    # Set the boot order
-    echo "Setting boot order..."
-    if ! qm set "$VMID" --boot c --bootdisk scsi0; then
-        echo "Failed to set boot order. Command output:"
-        qm set "$VMID" --boot c --bootdisk scsi0
-        whiptail --msgbox "Failed to set boot order for VM $VM_NAME (VMID: $VMID). Please check the output above for more information." 10 60
+        echo "Importing disk to Proxmox..."
+        IMPORT_OUTPUT=$(qm importdisk "$VMID" "$QCOW2_DISK" "$PROXMOX_STORAGE" -format qcow2)
+        if [[ $? -ne 0 ]]; then
+            echo "Failed to import disk. Command output:"
+            echo "$IMPORT_OUTPUT"
+            whiptail --msgbox "Failed to import disk for VM $VM_NAME (VMID: $VMID). Please check the output above for more information." 10 60
             return 1
         fi
+
+        # Extract the imported disk name from the output
+        IMPORTED_DISK=$(echo "$IMPORT_OUTPUT" | grep -oP "(?<=as ').*(?=')")
+        if [[ -z "$IMPORTED_DISK" ]]; then
+            whiptail --msgbox "Failed to extract imported disk name for VM $VM_NAME (VMID: $VMID)." 10 60
+            return 1
+        fi
+
+        # Attach the imported disk to the VM
+        echo "Attaching imported disk to VM..."
+        if ! qm set "$VMID" --scsi0 "$IMPORTED_DISK"; then
+            echo "Failed to attach disk. Command output:"
+            qm set "$VMID" --scsi0 "$IMPORTED_DISK"
+            whiptail --msgbox "Failed to attach disk to VM $VM_NAME (VMID: $VMID). Please check the output above for more information." 10 60
+            return 1
+        fi
+
+        # Set the boot order
+        echo "Setting boot order..."
+        if ! qm set "$VMID" --boot c --bootdisk scsi0; then
+            echo "Failed to set boot order. Command output:"
+            qm set "$VMID" --boot c --bootdisk scsi0
+            whiptail --msgbox "Failed to set boot order for VM $VM_NAME (VMID: $VMID). Please check the output above for more information." 10 60
+            return 1
+        fi
+    done
     
     # Clean up temporary directory if used
     if [[ -n "$TEMP_DIR" ]]; then
