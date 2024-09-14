@@ -2,9 +2,6 @@
 
 set -e
 
-echo "Updating and upgrading the system..."
-apt update && apt full-upgrade -y
-
 # Function to check and install dependencies
 check_and_install() {
     if ! command -v "$1" &> /dev/null; then
@@ -43,7 +40,7 @@ get_proxmox_node() {
 # Function to get the next available VMID
 get_next_vmid() {
     local vmid=100
-    while qm status $vmid &>/dev/null; do
+    while qm status $vmid &>/dev/null || pct status $vmid &>/dev/null; do
         ((vmid++))
     done
     echo $vmid
@@ -80,6 +77,11 @@ convert_and_import_vm() {
     echo "VM Path: $VM_PATH"
     
     if [[ $SELECTED_VM == *.ova ]]; then
+        echo "Checking OVA file integrity..."
+        if ! tar -tf "$VM_PATH" &>/dev/null; then
+            whiptail --msgbox "The OVA file appears to be corrupted or incomplete. Please check the file and try again." 10 60
+            return 1
+        fi
         echo "Extracting OVA file..."
         TEMP_DIR=$(mktemp -d)
         tar -xvf "$VM_PATH" -C "$TEMP_DIR"
