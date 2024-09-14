@@ -2,19 +2,13 @@
 
 set -e
 
+echo "Updating and upgrading the system..."
+apt update && apt full-upgrade -y
+
 # Function to check and install dependencies
 check_and_install() {
     if ! command -v "$1" &> /dev/null; then
         echo "$1 is not installed. Installing..."
-        if [ "$1" = "qemu-utils" ]; then
-            echo "Warning: Installing qemu-utils on a Proxmox system may cause conflicts."
-            echo "It's recommended to use the Proxmox-provided QEMU tools instead."
-            read -p "Do you want to continue? (y/n): " confirm
-            if [[ $confirm != [yY] ]]; then
-                echo "Skipping qemu-utils installation."
-                return
-            fi
-        fi
         apt-get update && apt-get install -y "$1" || {
             echo "Failed to install $1. Please install it manually."
             exit 1
