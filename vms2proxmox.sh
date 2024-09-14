@@ -42,7 +42,11 @@ get_proxmox_node() {
 
 # Function to get the next available VMID
 get_next_vmid() {
-    pvesh get /cluster/nextid
+    local vmid=100
+    while qm status $vmid &>/dev/null; do
+        ((vmid++))
+    done
+    echo $vmid
 }
 
 # Get Proxmox storages and node
@@ -108,12 +112,18 @@ convert_and_import_vm() {
         qemu-img convert -O qcow2 "$DISK_PATH" "$QCOW2_DISK"
         
         # Import the converted disk to Proxmox
-        qm importdisk "$VMID" "$QCOW2_DISK" "$PROXMOX_STORAGE" -format qcow2
+        if ! qm importdisk "$VMID" "$QCOW2_DISK" "$PROXMOX_STORAGE" -format qcow2; then
+            whiptail --msgbox "Failed to import disk for VM $VM_NAME (VMID: $VMID). Please check Proxmox logs for more information." 10 60
+            return
+        fi
     done
     
     # Create the VM in Proxmox using the OVF settings
     echo "Creating VM in Proxmox..."
-    qm create "$VMID" --name "$VM_NAME" --ostype other --machine q35 --scsihw virtio-scsi-pci --bootdisk scsi0 --scsi0 "$PROXMOX_STORAGE:vm-$VMID-disk-0"
+    if ! qm create "$VMID" --name "$VM_NAME" --ostype other --machine q35 --scsihw virtio-scsi-pci --bootdisk scsi0 --scsi0 "$PROXMOX_STORAGE:vm-$VMID-disk-0"; then
+        whiptail --msgbox "Failed to create VM $VM_NAME (VMID: $VMID) in Proxmox. Please check Proxmox logs for more information." 10 60
+        return
+    fi
     
     # Clean up temporary directory if used
     if [[ -n "$TEMP_DIR" ]]; then
