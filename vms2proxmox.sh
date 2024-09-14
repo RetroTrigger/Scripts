@@ -40,6 +40,11 @@ get_proxmox_node() {
     pvesh get nodes --output-format=json | jq -r '.[0].node'
 }
 
+# Function to get the next available VMID
+get_next_vmid() {
+    pvesh get /cluster/nextid
+}
+
 # Get Proxmox storages and node
 PROXMOX_STORAGES=($(get_proxmox_storages))
 PROXMOX_NODE=$(get_proxmox_node)
@@ -65,8 +70,9 @@ SELECTED_VM="${VM_FILES[$VM_CHOICE]}"
 convert_and_import_vm() {
     VM_PATH="$SOURCE_DIR/$SELECTED_VM"
     VM_NAME="${SELECTED_VM%.*}"
+    VMID=$(get_next_vmid)
     
-    echo "Processing VM: $VM_NAME"
+    echo "Processing VM: $VM_NAME (VMID: $VMID)"
     
     if [[ $SELECTED_VM == *.ova ]]; then
         # Extract OVA file
@@ -102,19 +108,19 @@ convert_and_import_vm() {
         qemu-img convert -O qcow2 "$DISK_PATH" "$QCOW2_DISK"
         
         # Import the converted disk to Proxmox
-        qm importdisk "$VM_NAME" "$QCOW2_DISK" "$PROXMOX_STORAGE" -format qcow2
+        qm importdisk "$VMID" "$QCOW2_DISK" "$PROXMOX_STORAGE" -format qcow2
     done
     
     # Create the VM in Proxmox using the OVF settings
     echo "Creating VM in Proxmox..."
-    qm create "$VM_NAME" --name "$VM_NAME" --ostype other --machine q35 --scsihw virtio-scsi-pci --bootdisk scsi0 --scsi0 "$PROXMOX_STORAGE:vm-$VM_NAME-disk-0"
+    qm create "$VMID" --name "$VM_NAME" --ostype other --machine q35 --scsihw virtio-scsi-pci --bootdisk scsi0 --scsi0 "$PROXMOX_STORAGE:vm-$VMID-disk-0"
     
     # Clean up temporary directory if used
     if [[ -n "$TEMP_DIR" ]]; then
         rm -rf "$TEMP_DIR"
     fi
     
-    whiptail --msgbox "VM $VM_NAME imported successfully!" 10 60
+    whiptail --msgbox "VM $VM_NAME (VMID: $VMID) imported successfully!" 10 60
 }
 
 # Confirm settings with the user
