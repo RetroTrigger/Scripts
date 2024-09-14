@@ -58,7 +58,7 @@ convert_and_import_vm() {
     if [[ $SELECTED_VM == *.ova ]]; then
         # ... (existing OVA handling code) ...
     elif [[ $SELECTED_VM == *.vmdk ]]; then
-        # ... (existing VMDK handling code) ...
+        DISK_FILES=("$VM_PATH")
     else
         echo "Treating as directory containing disk images..."
         if [[ -d "$VM_PATH" ]]; then
@@ -71,10 +71,6 @@ convert_and_import_vm() {
             whiptail --msgbox "Invalid VM path: $VM_PATH" 10 60
             return 1
         fi
-    fi
-    
-    if [[ -n "$OVF_FILE" ]]; then
-        DISK_FILES=($(grep "<File" "$OVF_FILE" | sed -n 's/.*ovf:href="\(.*\)".*/\1/p'))
     fi
     
     echo "Found disk files: ${DISK_FILES[*]}"
@@ -93,8 +89,7 @@ convert_and_import_vm() {
         echo "  $debug_disk"
     done
     
-    for DISK in "${DISK_FILES[@]}"; do
-        DISK_PATH="$DISK"
+    for DISK_PATH in "${DISK_FILES[@]}"; do
         QCOW2_DISK="${DISK_PATH%.*}.qcow2"
         
         echo "Converting $DISK_PATH to $QCOW2_DISK"
