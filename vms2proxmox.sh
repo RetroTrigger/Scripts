@@ -72,34 +72,39 @@ SELECTED_VM="${VM_FILES[$VM_CHOICE]}"
 
 # Function to convert and import a VM
 convert_and_import_vm() {
-    VM_PATH="$SOURCE_DIR/$SELECTED_VM"
-    VM_NAME="${SELECTED_VM%.*}"
-    VMID=$(get_next_vmid)
+    # ... (previous code remains the same)
+
+    # Convert VMDK or VDI to QCOW2 format
+    for DISK in $(grep "<File" "$OVF_FILE" | sed -n 's/.*ovf:href="\(.*\)".*/\1/p'); do
+        DISK_PATH="$VM_PATH/$DISK"
+        QCOW2_DISK="$VM_PATH/${DISK%.*}.qcow2"
+        
+        echo "Converting $DISK_PATH to $QCOW2_DISK"
+        qemu-img convert -O qcow2 "$DISK_PATH" "$QCOW2_DISK"
+        
+        # Import the converted disk to Proxmox
+        if ! qm importdisk "$VMID" "$QCOW2_DISK" "$PROXMOX_STORAGE" -format qcow2; then
+            ERROR_LOG=$(tail -n 20 /var/log/pve/pveproxy.log)
+            whiptail --msgbox "Failed to import disk for VM $VM_NAME (VMID: $VMID). Here are the last 20 lines of the Proxmox log:\n\n$ERROR_LOG" 20 76
+            return
+        fi
+    done
     
-    echo "Processing VM: $VM_NAME (VMID: $VMID)"
-    
-    if [[ $SELECTED_VM == *.ova ]]; then
-        # Extract OVA file
-        TEMP_DIR=$(mktemp -d)
-        tar -xvf "$VM_PATH" -C "$TEMP_DIR"
-        OVF_FILE=$(find "$TEMP_DIR" -name "*.ovf" | head -n 1)
-        VM_PATH="$TEMP_DIR"
-    elif [[ $SELECTED_VM == *.vmdk ]]; then
-        # Create a temporary OVF file for single VMDK
-        TEMP_DIR=$(mktemp -d)
-        cp "$VM_PATH" "$TEMP_DIR/"
-        OVF_FILE="$TEMP_DIR/temp.ovf"
-        echo "<Envelope><References><File ovf:href=\"$(basename "$VM_PATH")\"/></References></Envelope>" > "$OVF_FILE"
-        VM_PATH="$TEMP_DIR"
-    else
-        # For directories, find the OVF file
-        OVF_FILE=$(find "$VM_PATH" -name "*.ovf" | head -n 1)
-    fi
-    
-    if [ -z "$OVF_FILE" ]; then
-        whiptail --msgbox "No OVF file found for $SELECTED_VM, skipping..." 10 60
+    # Create the VM in Proxmox using the OVF settings
+    echo "Creating VM in Proxmox..."
+    if ! qm create "$VMID" --name "$VM_NAME" --ostype other --machine q35 --scsihw virtio-scsi-pci --bootdisk scsi0 --scsi0 "$PROXMOX_STORAGE:vm-$VMID-disk-0"; then
+        ERROR_LOG=$(tail -n 20 /var/log/pve/pveproxy.log)
+        whiptail --msgbox "Failed to create VM $VM_NAME (VMID: $VMID) in Proxmox. Here are the last 20 lines of the Proxmox log:\n\n$ERROR_LOG" 20 76
         return
     fi
+    
+    # Clean up temporary directory if used
+    if [[ -n "$TEMP_DIR" ]]; then
+        rm -rf "$TEMP_DIR"
+    fi
+    
+    whiptail --msgbox "VM $VM_NAME (VMID: $VMID) imported successfully!" 10 60
+}
     
     echo "Found OVF file: $OVF_FILE"
     
