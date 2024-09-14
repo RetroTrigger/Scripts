@@ -48,5 +48,5 @@ wget -O - https://raw.githubusercontent.com/RetroTrigger/.Scripts/master/Ultimat
 Proxmox VM Coversion And Import Script
 Use the following command to run the script easily in one run:
 ```bash
-curl -sSL https://raw.githubusercontent.com/RetroTrigger/.Scripts/master/vms2proxmox.sh | bash
+curl -sSL https://raw.githubusercontent.com/RetroTrigger/.Scripts/master/vms2proxmox.sh -o vms2proxmox.sh && chmod +x vms2proxmox.sh && sudo ./vms2proxmox.sh
 ```

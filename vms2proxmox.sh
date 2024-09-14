@@ -1,5 +1,19 @@
 #!/bin/bash
 
+set -e
+
+# Function to check and install dependencies
+check_and_install() {
+    if ! command -v "$1" &> /dev/null; then
+        echo "$1 is not installed. Installing..."
+        apt-get update && apt-get install -y "$1"
+    fi
+}
+
+# Check and install dependencies
+check_and_install jq
+check_and_install qemu-utils
+
 # Set the permanent source directory
 SOURCE_DIR="/srv/samba/vm_temps"
 
