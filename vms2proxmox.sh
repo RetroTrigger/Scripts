@@ -77,27 +77,28 @@ convert_and_import_vm() {
     VMID=$(get_next_vmid)
     
     echo "Processing VM: $VM_NAME (VMID: $VMID)"
+    echo "VM Path: $VM_PATH"
     
     if [[ $SELECTED_VM == *.ova ]]; then
-        # Extract OVA file
+        echo "Extracting OVA file..."
         TEMP_DIR=$(mktemp -d)
         tar -xvf "$VM_PATH" -C "$TEMP_DIR"
         OVF_FILE=$(find "$TEMP_DIR" -name "*.ovf" | head -n 1)
         VM_PATH="$TEMP_DIR"
     elif [[ $SELECTED_VM == *.vmdk ]]; then
-        # Create a temporary OVF file for single VMDK
+        echo "Creating temporary OVF for VMDK..."
         TEMP_DIR=$(mktemp -d)
         cp "$VM_PATH" "$TEMP_DIR/"
         OVF_FILE="$TEMP_DIR/temp.ovf"
         echo "<Envelope><References><File ovf:href=\"$(basename "$VM_PATH")\"/></References></Envelope>" > "$OVF_FILE"
         VM_PATH="$TEMP_DIR"
     else
-        # For directories, find the OVF file
+        echo "Searching for OVF file in directory..."
         OVF_FILE=$(find "$VM_PATH" -name "*.ovf" | head -n 1)
     fi
     
     if [ -z "$OVF_FILE" ]; then
-        whiptail --msgbox "No OVF file found for $SELECTED_VM, skipping..." 10 60
+        whiptail --msgbox "No OVF file found for $SELECTED_VM. VM Path: $VM_PATH" 10 60
         return 1
     fi
     
@@ -106,7 +107,7 @@ convert_and_import_vm() {
     # Convert VMDK or VDI to QCOW2 format
     DISK_FILES=$(grep "<File" "$OVF_FILE" | sed -n 's/.*ovf:href="\(.*\)".*/\1/p')
     if [ -z "$DISK_FILES" ]; then
-        whiptail --msgbox "No disk files found in OVF for $SELECTED_VM, skipping..." 10 60
+        whiptail --msgbox "No disk files found in OVF for $SELECTED_VM. OVF Path: $OVF_FILE" 10 60
         return 1
     fi
     
@@ -118,6 +119,7 @@ convert_and_import_vm() {
         qemu-img convert -O qcow2 "$DISK_PATH" "$QCOW2_DISK"
         
         # Import the converted disk to Proxmox
+        echo "Importing disk to Proxmox..."
         if ! qm importdisk "$VMID" "$QCOW2_DISK" "$PROXMOX_STORAGE" -format qcow2; then
             whiptail --msgbox "Failed to import disk for VM $VM_NAME (VMID: $VMID). Please check Proxmox logs for more information." 10 60
             return 1
