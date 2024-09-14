@@ -1,5 +1,5 @@
 #!/bin/bash
-
+set -x
 set -e
 
 # Function to check and install dependencies
