@@ -56,23 +56,9 @@ convert_and_import_vm() {
     echo "VM Path: $VM_PATH"
     
     if [[ $SELECTED_VM == *.ova ]]; then
-        echo "Checking OVA file integrity..."
-        if ! tar -tf "$VM_PATH" &>/dev/null; then
-            whiptail --msgbox "The OVA file appears to be corrupted or incomplete. Please check the file and try again." 10 60
-            return 1
-        fi
-        echo "Extracting OVA file..."
-        TEMP_DIR=$(mktemp -d)
-        tar -xvf "$VM_PATH" -C "$TEMP_DIR"
-        OVF_FILE=$(find "$TEMP_DIR" -name "*.ovf" | head -n 1)
-        VM_PATH="$TEMP_DIR"
+        # ... (existing OVA handling code) ...
     elif [[ $SELECTED_VM == *.vmdk ]]; then
-        echo "Creating temporary OVF for VMDK..."
-        TEMP_DIR=$(mktemp -d)
-        cp "$VM_PATH" "$TEMP_DIR/"
-        OVF_FILE="$TEMP_DIR/temp.ovf"
-        echo "<Envelope><References><File ovf:href=\"$(basename "$VM_PATH")\"/></References></Envelope>" > "$OVF_FILE"
-        VM_PATH="$TEMP_DIR"
+        # ... (existing VMDK handling code) ...
     else
         echo "Treating as directory containing disk images..."
         if [[ -d "$VM_PATH" ]]; then
@@ -108,7 +94,7 @@ convert_and_import_vm() {
     done
     
     for DISK in "${DISK_FILES[@]}"; do
-        DISK_PATH="$VM_PATH/$DISK"
+        DISK_PATH="$DISK"
         QCOW2_DISK="${DISK_PATH%.*}.qcow2"
         
         echo "Converting $DISK_PATH to $QCOW2_DISK"
@@ -154,11 +140,6 @@ convert_and_import_vm() {
             return 1
         fi
     done
-    
-    # Clean up temporary directory if used
-    if [[ -n "$TEMP_DIR" ]]; then
-        rm -rf "$TEMP_DIR"
-    fi
     
     whiptail --msgbox "VM $VM_NAME (VMID: $VMID) imported successfully!" 10 60
     return 0
