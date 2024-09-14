@@ -104,7 +104,14 @@ convert_and_import_vm() {
     
     echo "Found OVF file: $OVF_FILE"
     
-    # Convert VMDK or VDI to QCOW2 format
+    # Create the VM in Proxmox first
+    echo "Creating VM in Proxmox..."
+    if ! qm create "$VMID" --name "$VM_NAME" --ostype l26 --memory 2048 --cores 2 --net0 e1000,bridge=vmbr0; then
+        whiptail --msgbox "Failed to create VM $VM_NAME (VMID: $VMID) in Proxmox. Please check Proxmox logs for more information." 10 60
+        return 1
+    fi
+    
+    # Convert VMDK or VDI to QCOW2 format and import
     DISK_FILES=$(grep "<File" "$OVF_FILE" | sed -n 's/.*ovf:href="\(.*\)".*/\1/p')
     if [ -z "$DISK_FILES" ]; then
         whiptail --msgbox "No disk files found in OVF for $SELECTED_VM. OVF Path: $OVF_FILE" 10 60
@@ -126,10 +133,17 @@ convert_and_import_vm() {
         fi
     done
     
-    # Create the VM in Proxmox using the OVF settings
-    echo "Creating VM in Proxmox..."
-    if ! qm create "$VMID" --name "$VM_NAME" --ostype other --machine q35 --scsihw virtio-scsi-pci --bootdisk scsi0 --scsi0 "$PROXMOX_STORAGE:vm-$VMID-disk-0"; then
-        whiptail --msgbox "Failed to create VM $VM_NAME (VMID: $VMID) in Proxmox. Please check Proxmox logs for more information." 10 60
+    # Attach the imported disk to the VM
+    echo "Attaching imported disk to VM..."
+    if ! qm set "$VMID" --scsi0 "$PROXMOX_STORAGE:vm-$VMID-disk-0"; then
+        whiptail --msgbox "Failed to attach disk to VM $VM_NAME (VMID: $VMID). Please check Proxmox logs for more information." 10 60
+        return 1
+    fi
+    
+    # Set the boot order
+    echo "Setting boot order..."
+    if ! qm set "$VMID" --boot c --bootdisk scsi0; then
+        whiptail --msgbox "Failed to set boot order for VM $VM_NAME (VMID: $VMID). Please check Proxmox logs for more information." 10 60
         return 1
     fi
     
