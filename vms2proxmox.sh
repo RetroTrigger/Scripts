@@ -88,7 +88,7 @@ convert_and_import_vm() {
     fi
     
     if [[ -n "$OVF_FILE" ]]; then
-        DISK_FILES=$(grep "<File" "$OVF_FILE" | sed -n 's/.*ovf:href="\(.*\)".*/\1/p')
+        DISK_FILES=($(grep "<File" "$OVF_FILE" | sed -n 's/.*ovf:href="\(.*\)".*/\1/p'))
     fi
     
     echo "Found disk files: ${DISK_FILES[*]}"
