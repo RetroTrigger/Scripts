@@ -107,7 +107,15 @@ convert_and_import_vm() {
     # Create the VM in Proxmox first
     echo "Creating VM in Proxmox..."
     if ! qm create "$VMID" --name "$VM_NAME" --ostype l26 --memory 2048 --cores 2 --net0 e1000,bridge=vmbr0; then
-        whiptail --msgbox "Failed to create VM $VM_NAME (VMID: $VMID) in Proxmox. Please check Proxmox logs for more information." 10 60
+        echo "Failed to create VM. Command output:"
+        qm create "$VMID" --name "$VM_NAME" --ostype l26 --memory 2048 --cores 2 --net0 e1000,bridge=vmbr0
+        whiptail --msgbox "Failed to create VM $VM_NAME (VMID: $VMID) in Proxmox. Please check the output above for more information." 10 60
+        return 1
+    fi
+    
+    # Verify that the VM configuration file exists
+    if [ ! -f "/etc/pve/qemu-server/$VMID.conf" ]; then
+        whiptail --msgbox "VM configuration file for $VM_NAME (VMID: $VMID) was not created. Please check Proxmox logs for more information." 10 60
         return 1
     fi
     
@@ -128,7 +136,9 @@ convert_and_import_vm() {
         # Import the converted disk to Proxmox
         echo "Importing disk to Proxmox..."
         if ! qm importdisk "$VMID" "$QCOW2_DISK" "$PROXMOX_STORAGE" -format qcow2; then
-            whiptail --msgbox "Failed to import disk for VM $VM_NAME (VMID: $VMID). Please check Proxmox logs for more information." 10 60
+            echo "Failed to import disk. Command output:"
+            qm importdisk "$VMID" "$QCOW2_DISK" "$PROXMOX_STORAGE" -format qcow2
+            whiptail --msgbox "Failed to import disk for VM $VM_NAME (VMID: $VMID). Please check the output above for more information." 10 60
             return 1
         fi
     done
@@ -136,14 +146,18 @@ convert_and_import_vm() {
     # Attach the imported disk to the VM
     echo "Attaching imported disk to VM..."
     if ! qm set "$VMID" --scsi0 "$PROXMOX_STORAGE:vm-$VMID-disk-0"; then
-        whiptail --msgbox "Failed to attach disk to VM $VM_NAME (VMID: $VMID). Please check Proxmox logs for more information." 10 60
+        echo "Failed to attach disk. Command output:"
+        qm set "$VMID" --scsi0 "$PROXMOX_STORAGE:vm-$VMID-disk-0"
+        whiptail --msgbox "Failed to attach disk to VM $VM_NAME (VMID: $VMID). Please check the output above for more information." 10 60
         return 1
     fi
     
     # Set the boot order
     echo "Setting boot order..."
     if ! qm set "$VMID" --boot c --bootdisk scsi0; then
-        whiptail --msgbox "Failed to set boot order for VM $VM_NAME (VMID: $VMID). Please check Proxmox logs for more information." 10 60
+        echo "Failed to set boot order. Command output:"
+        qm set "$VMID" --boot c --bootdisk scsi0
+        whiptail --msgbox "Failed to set boot order for VM $VM_NAME (VMID: $VMID). Please check the output above for more information." 10 60
         return 1
     fi
     
