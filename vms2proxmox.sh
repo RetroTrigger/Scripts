@@ -27,6 +27,12 @@ fi
 # Set the permanent source directory
 SOURCE_DIR="/srv/samba/vm_temps"
 
+# Check if SOURCE_DIR exists
+if [ ! -d "$SOURCE_DIR" ]; then
+    whiptail --msgbox "The source directory $SOURCE_DIR does not exist. Please check the path and try again." 10 60
+    exit 1
+fi
+
 # Function to get available Proxmox storages
 get_proxmox_storages() {
     pvesh get storage --output-format=json | jq -r '.[].storage'
@@ -56,7 +62,17 @@ convert_and_import_vm() {
     echo "VM Path: $VM_PATH"
     
     if [[ $SELECTED_VM == *.ova ]]; then
-        # ... (existing OVA handling code) ...
+        echo "Checking OVA file integrity..."
+        if ! tar -tf "$VM_PATH" &>/dev/null; then
+            whiptail --msgbox "The OVA file appears to be corrupted or incomplete. Please check the file and try again." 10 60
+            return 1
+        fi
+        echo "Extracting OVA file..."
+        TEMP_DIR=$(mktemp -d)
+        tar -xvf "$VM_PATH" -C "$TEMP_DIR"
+        OVF_FILE=$(find "$TEMP_DIR" -name "*.ovf" | head -n 1)
+        DISK_FILES=($(grep "<File" "$OVF_FILE" | sed -n 's/.*ovf:href="\(.*\)".*/\1/p'))
+        VM_PATH="$TEMP_DIR"
     elif [[ $SELECTED_VM == *.vmdk ]]; then
         DISK_FILES=("$VM_PATH")
     else
@@ -90,12 +106,13 @@ convert_and_import_vm() {
     done
     
     for DISK_PATH in "${DISK_FILES[@]}"; do
-        QCOW2_DISK="${DISK_PATH%.*}.qcow2"
+        FULL_DISK_PATH="$VM_PATH/$DISK_PATH"
+        QCOW2_DISK="${FULL_DISK_PATH%.*}.qcow2"
         
-        echo "Converting $DISK_PATH to $QCOW2_DISK"
-        if ! qemu-img convert -O qcow2 "$DISK_PATH" "$QCOW2_DISK"; then
+        echo "Converting $FULL_DISK_PATH to $QCOW2_DISK"
+        if ! qemu-img convert -O qcow2 "$FULL_DISK_PATH" "$QCOW2_DISK"; then
             echo "Failed to convert disk. Command output:"
-            qemu-img convert -O qcow2 "$DISK_PATH" "$QCOW2_DISK"
+            qemu-img convert -O qcow2 "$FULL_DISK_PATH" "$QCOW2_DISK"
             whiptail --msgbox "Failed to convert disk for VM $VM_NAME (VMID: $VMID). Please check the output above for more information." 10 60
             return 1
         fi
@@ -136,6 +153,11 @@ convert_and_import_vm() {
         fi
     done
     
+    # Clean up temporary directory if used
+    if [[ -n "$TEMP_DIR" ]]; then
+        rm -rf "$TEMP_DIR"
+    fi
+    
     whiptail --msgbox "VM $VM_NAME (VMID: $VMID) imported successfully!" 10 60
     return 0
 }
@@ -150,6 +172,10 @@ for i in "${!PROXMOX_STORAGES[@]}"; do
     STORAGE_OPTIONS+=("$i" "${PROXMOX_STORAGES[$i]}")
 done
 STORAGE_CHOICE=$(whiptail --title "Proxmox Storage Selection" --menu "Choose a Proxmox storage:" 20 60 10 "${STORAGE_OPTIONS[@]}" 3>&1 1>&2 2>&3)
+if [ $? -ne 0 ]; then
+    echo "Storage selection cancelled. Exiting."
+    exit 1
+fi
 PROXMOX_STORAGE="${PROXMOX_STORAGES[$STORAGE_CHOICE]}"
 
 # Display available VMs and ask user to choose
@@ -159,6 +185,10 @@ for i in "${!VM_FILES[@]}"; do
     VM_OPTIONS+=("$i" "${VM_FILES[$i]}")
 done
 VM_CHOICE=$(whiptail --title "VM Selection" --menu "Choose a VM to convert and import:" 20 60 10 "${VM_OPTIONS[@]}" 3>&1 1>&2 2>&3)
+if [ $? -ne 0 ]; then
+    echo "VM selection cancelled. Exiting."
+    exit 1
+fi
 SELECTED_VM="${VM_FILES[$VM_CHOICE]}"
 
 # Confirm settings with the user
