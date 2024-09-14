@@ -6,13 +6,30 @@ set -e
 check_and_install() {
     if ! command -v "$1" &> /dev/null; then
         echo "$1 is not installed. Installing..."
-        apt-get update && apt-get install -y "$1"
+        if [ "$1" = "qemu-utils" ]; then
+            echo "Warning: Installing qemu-utils on a Proxmox system may cause conflicts."
+            echo "It's recommended to use the Proxmox-provided QEMU tools instead."
+            read -p "Do you want to continue? (y/n): " confirm
+            if [[ $confirm != [yY] ]]; then
+                echo "Skipping qemu-utils installation."
+                return
+            fi
+        fi
+        apt-get update && apt-get install -y "$1" || {
+            echo "Failed to install $1. Please install it manually."
+            exit 1
+        }
     fi
 }
 
 # Check and install dependencies
 check_and_install jq
-check_and_install qemu-utils
+
+# Check for qemu-img without installing qemu-utils
+if ! command -v qemu-img &> /dev/null; then
+    echo "qemu-img is not found. Please ensure QEMU tools are properly installed on your Proxmox system."
+    exit 1
+fi
 
 # Set the permanent source directory
 SOURCE_DIR="/srv/samba/vm_temps"
