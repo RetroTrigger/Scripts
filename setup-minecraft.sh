@@ -5,33 +5,31 @@
 # Update and install necessary packages
 echo "Updating system and installing necessary packages..."
 apk update
-apk add openjdk11 screen wget unzip openrc
+apk add openjdk11 screen wget curl unzip openrc
 
 # Define server installation directory
 MINECRAFT_DIR="/opt/minecraft"
-MINECRAFT_URL="YOUR_FTB_SERVER_URL_HERE"  # Replace this with the actual URL of the FTB server pack
+MINECRAFT_URL= "https://api.feed-the-beast.com/v1/modpacks/public/modpack/126/12494/server/linux"  # Replace this with the actual URL of the FTB server pack
 
 # Create the Minecraft server directory
 echo "Creating Minecraft server directory..."
 mkdir -p $MINECRAFT_DIR
 cd $MINECRAFT_DIR
 
-# Download and extract FTB server files
+# Download FTB server files
 echo "Downloading FTB Direwolf20 server files..."
-wget -O ftb-server.zip $MINECRAFT_URL
-unzip ftb-server.zip
-rm ftb-server.zip
+curl -JLO  $MINECRAFT_URL
+chmod +x serverinstall_126_12494ftb-server
 
-# Accept the EULA
-echo "Accepting Minecraft EULA..."
-echo "eula=true" > eula.txt
+# Run The Install Script
+./serverinstall_126_12494ftb-server.zip
 
 # Create a script to start the Minecraft server using screen
 echo "Creating Minecraft server start script..."
 cat << 'EOF' > /opt/minecraft/start-minecraft.sh
 #!/bin/sh
 cd /opt/minecraft
-screen -S minecraft -d -m ./ServerStart.sh
+screen -S minecraft -d -m ./run.sh
 EOF
 
 # Make the start script executable
