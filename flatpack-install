@@ -1,25 +1,74 @@
 #!/bin/bash
 
-# Install Flatpack 
-sudo apt install flatpak
-flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
+## Install Flatpack 
 
-# Install Flatpacks
-flatpak install flathub com.spotify.Client
-flatpak install flathub org.videolan.VLC
-flatpak install flathub com.visualstudio.code
-flatpak install flathub com.dropbox.Client
-flatpak install flathub org.filezillaproject.Filezilla
-flatpak install flathub io.github.shiftey.Desktop
-flatpak install flathub org.gnome.Lollypop
-flatpak install flathub com.github.Bleuzen.FFaudioConverter
-flatpak install flathub com.vinszent.GnomeTwitch
-flatpak install flathub com.makemkv.MakeMKV
-flatpak install flathub com.atlauncher.ATLauncher
-flatpak install flathub com.moonlight_stream.Moonlight
-flatpak install flathub com.brave.Browser
-flatpak install flathub org.deluge_torrent.deluge
-flatpak install flathub com.ultimaker.cura
+# Determine distribution
+if [ -f /etc/os-release ]; then
+    . /etc/os-release
+    DISTRO=$ID
+else
+    echo "Cannot determine the distribution."
+    exit 1
+fi
 
-# Reboot
-sudo reboot
+# Install Flatpak based on the distribution
+case $DISTRO in
+    ubuntu|debian|linuxmint)
+        sudo apt update
+        sudo apt install -y flatpak
+        sudo apt install -y gnome-software-plugin-flatpak
+        flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
+        ;;
+
+    fedora)
+        sudo dnf install -y flatpak
+        flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
+        ;;
+
+    centos|rhel)
+        sudo yum install -y flatpak
+        flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
+        ;;
+
+    opensuse)
+        sudo zypper install -y flatpak
+        flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
+        ;;
+
+    arch|manjaro)
+        sudo pacman -Sy flatpak
+        flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
+        ;;
+
+    *)
+        echo "Unsupported distribution."
+        exit 1
+        ;;
+esac
+
+## Apply GTK System Themes To Flatpak Apps
+#sudo flatpak override --filesystem=$HOME/.local/share/themes
+#sudo flatpak override --filesystem=$HOME/.local/share/icons
+#sudo flatpak override --env=GTK_THEME=Dracula
+#sudo flatpak override --env=ICON_THEME=Dracula 
+sudo flatpak override --filesystem=$HOME/.themes
+sudo flatpak override --filesystem=$HOME/.icons
+sudo flatpak override --env=GTK_THEME=Otis-forest
+sudo flatpak override --env=ICON_THEME=Flat-Remix-Grey-Light-darkPanel
+
+## Install Flatpacks
+flatpak install -y --noninteractive flathub com.spotify.Client
+flatpak install -y --noninteractive flathub org.videolan.VLC
+flatpak install -y --noninteractive flathub com.visualstudio.code
+flatpak install -y --noninteractive flathub com.dropbox.Client
+flatpak install -y --noninteractive flathub org.filezillaproject.Filezilla
+flatpak install -y --noninteractive flathub io.github.shiftey.Desktop
+flatpak install -y --noninteractive flathub org.gnome.Lollypop
+flatpak install -y --noninteractive flathub com.github.Bleuzen.FFaudioConverter
+flatpak install -y --noninteractive flathub com.makemkv.MakeMKV
+flatpak install -y --noninteractive flathub fr.handbrake.ghb
+flatpak install -y --noninteractive flathub io.gdevs.GDLauncher
+flatpak install -y --noninteractive flathub com.moonlight_stream.Moonlight
+flatpak install -y --noninteractive flathub com.ultimaker.cura
+flatpak install -y --noninteractive flathub org.polymc.PolyMC
+
