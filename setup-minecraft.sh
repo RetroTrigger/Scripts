@@ -9,32 +9,31 @@ apk add openjdk11 screen wget curl unzip openrc
 
 # Define server installation directory
 MINECRAFT_DIR="/opt/minecraft"
-MINECRAFT_URL="https://api.modpacks.ch/public/modpack/126/12494/server/linux"
+MINECRAFT_URL="https://api.modpacks.ch/public/modpack/126/12494/server/linux"  # Replace with the correct FTB download URL if necessary
 
 # Create the Minecraft server directory
-echo "Creating Minecraft server directory..."
+echo "Creating Minecraft server directory at $MINECRAFT_DIR..."
 mkdir -p $MINECRAFT_DIR
 cd $MINECRAFT_DIR
 
 # Download FTB server files
 echo "Downloading FTB Direwolf20 server files..."
-curl -JLO $MINECRAFT_URL
+wget -O serverinstaller_126_12494 $MINECRAFT_URL
 
-# Unzip the downloaded file
-echo "Unzipping the FTB Direwolf20 server files..."
-unzip linux.zip -d $MINECRAFT_DIR
-chmod +x ServerStart.sh
+# Give execute permissions to the downloaded server installer
+echo "Setting execute permissions for the server installer..."
+chmod +x serverinstaller_126_12494
 
-# Run the install script
-echo "Running the FTB install script..."
-./ServerStart.sh
+# Run the server installer
+echo "Running the server installer..."
+./serverinstaller_126_12494
 
 # Create a script to start the Minecraft server using screen
 echo "Creating Minecraft server start script..."
 cat << 'EOF' > /opt/minecraft/start-minecraft.sh
 #!/bin/sh
 cd /opt/minecraft
-screen -S minecraft -d -m ./ServerStart.sh
+screen -S minecraft -d -m ./run.sh
 EOF
 
 # Make the start script executable
