@@ -33,7 +33,7 @@ echo "Creating Minecraft server start script..."
 cat << 'EOF' > /opt/minecraft/start-minecraft.sh
 #!/bin/sh
 cd /opt/minecraft
-screen -S minecraft -d -m ./run.sh
+screen -S minecraft -d -m sh start.sh
 EOF
 
 # Make the start script executable
