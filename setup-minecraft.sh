@@ -71,4 +71,54 @@ rc-update add minecraft default
 echo "Starting Minecraft server..."
 rc-service minecraft start
 
+# Add helpful Minecraft server commands to the shell profile
+
+# For bash
+if [ -f ~/.bashrc ]; then
+    echo "Adding helpful commands to ~/.bashrc..."
+    cat << 'EOF' >> ~/.bashrc
+
+# Minecraft Server Management Commands
+echo ""
+echo "Check the Server:"
+echo "You can monitor the server by reattaching to the screen session:"
+echo ""
+echo "  screen -r minecraft"
+echo ""
+echo "Additional Commands:"
+echo "Stop the server manually:"
+echo ""
+echo "  rc-service minecraft stop"
+echo ""
+echo "Start the server manually:"
+echo ""
+echo "  rc-service minecraft start"
+echo ""
+EOF
+fi
+
+# For ash (Alpine's default shell)
+if [ -f ~/.profile ]; then
+    echo "Adding helpful commands to ~/.profile..."
+    cat << 'EOF' >> ~/.profile
+
+# Minecraft Server Management Commands
+echo ""
+echo "Check the Server:"
+echo "You can monitor the server by reattaching to the screen session:"
+echo ""
+echo "  screen -r minecraft"
+echo ""
+echo "Additional Commands:"
+echo "Stop the server manually:"
+echo ""
+echo "  rc-service minecraft stop"
+echo ""
+echo "Start the server manually:"
+echo ""
+echo "  rc-service minecraft start"
+echo ""
+EOF
+fi
+
 echo "Setup complete! Minecraft server is installed and set to start on boot."
