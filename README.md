@@ -50,3 +50,8 @@ Use the following command to run the script easily in one run:
 ```bash
 curl -sSL https://raw.githubusercontent.com/RetroTrigger/.Scripts/master/vms2proxmox.sh -o vms2proxmox.sh && chmod +x vms2proxmox.sh && ./vms2proxmox.sh
 ```
+FTB Direwolf20 Server Setup Script
+Use the following command to run the script easily in one run:
+```bash
+wget -O - https://raw.githubusercontent.com/RetroTrigger/.Scripts/master/setup-minecraft.sh | bash
+```
