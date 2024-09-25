@@ -53,5 +53,5 @@ curl -sSL https://raw.githubusercontent.com/RetroTrigger/.Scripts/master/vms2pro
 FTB Direwolf20 Server Setup Script
 Use the following command to run the script easily in one run:
 ```bash
-wget -O - https://raw.githubusercontent.com/RetroTrigger/.Scripts/master/setup-minecraft.sh | bash
+sh -c "$(wget -qO- https://raw.githubusercontent.com/RetroTrigger/.Scripts/master/setup-minecraft.sh)"
 ```
