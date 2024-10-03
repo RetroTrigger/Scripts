@@ -5,6 +5,14 @@ post_install =
 ```bash
 wget -O - https://raw.githubusercontent.com/RetroTrigger/.Scripts/master/Arch_post_install.sh | bash
 ```
+## Run the Lancache DNS Setup Script
+
+To apply Lancache DNS settings for Steam downloads, run the following command in your terminal:
+
+```bash
+curl -sL https://raw.githubusercontent.com/RetroTrigger/.Scripts/master/set-lancache-dns-steam.sh | bash
+```
+
 linux-install-atlauncher.sh =
 ```bash
 wget -O - https://raw.githubusercontent.com/RetroTrigger/.Scripts/master/linux-install-atlauncher.sh | bash
