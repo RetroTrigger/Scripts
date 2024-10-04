@@ -1,24 +1,21 @@
 # Scripts
 Collection Of My Personal Scripts
 
-## Run the Lancache DNS Setup Script
-
-To apply Lancache DNS settings for Steam downloads, run the following command in your terminal:
-
+Run the Lancache DNS Setup Script:
 ```bash
-curl -sL https://raw.githubusercontent.com/RetroTrigger/.Scripts/master/set-lancache-dns-steam.sh | bash
+wget -O - https://raw.githubusercontent.com/RetroTrigger/.Scripts/master/install_lancache.sh | bash
 ```
 
-post_install =
+post_install 
 ```bash
 wget -O - https://raw.githubusercontent.com/RetroTrigger/.Scripts/master/Arch_post_install.sh | bash
 ```
 
-linux-install-atlauncher.sh =
+linux-install-atlauncher.sh
 ```bash
 wget -O - https://raw.githubusercontent.com/RetroTrigger/.Scripts/master/linux-install-atlauncher.sh | bash
 ```
-Elementary Os Bootstrap Script =
+Elementary Os Bootstrap Script 
 ```bash
 wget -O - https://raw.githubusercontent.com/RetroTrigger/.Scripts/master/EOS-BSTRP.sh | bash
 ```
