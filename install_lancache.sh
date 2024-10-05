@@ -43,28 +43,6 @@ EOL
 echo "Starting Lancache with Docker Compose..."
 docker-compose up -d
 
-# Install SteamPrefill
-echo "Downloading and installing SteamPrefill..."
-curl -Lo steamprefill.zip https://github.com/tpill90/SteamPrefill/releases/latest/download/SteamPrefill_Linux_x64.zip
-unzip steamprefill.zip -d /usr/local/bin/
-chmod +x /usr/local/bin/SteamPrefill
-rm steamprefill.zip
-
-# Install BattleNetPrefill
-echo "Downloading and installing BattleNetPrefill..."
-curl -Lo battlenetprefill.zip https://github.com/tpill90/BattleNetPrefill/releases/latest/download/BattleNetPrefill_Linux_x64.zip
-unzip battlenetprefill.zip -d /usr/local/bin/
-chmod +x /usr/local/bin/BattleNetPrefill
-rm battlenetprefill.zip
-
-# Install EpicPrefill
-echo "Downloading and installing EpicPrefill..."
-curl -Lo epicprefill.zip https://github.com/tpill90/EpicPrefill/releases/latest/download/EpicPrefill_Linux_x64.zip
-unzip epicprefill.zip -d /usr/local/bin/
-chmod +x /usr/local/bin/EpicPrefill
-rm epicprefill.zip
-
 # Print completion message
-echo "Lancache and prefill tools setup complete."
+echo "Lancache setup complete."
 echo "Lancache is running at $LANCACHE_IP. Please configure your router or devices to use this IP as the DNS server."
-echo "Use '/usr/local/bin/SteamPrefill', '/usr/local/bin/BattleNetPrefill', or '/usr/local/bin/EpicPrefill' to prefill your game caches."
