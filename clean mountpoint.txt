@@ -1,0 +1,8 @@
+# Forcefully unmount if it's hanging
+sudo umount -lf /tmp/ps3iso_mount 2>/dev/null
+
+# Kill stuck FUSE sessions
+sudo fuser -k /tmp/ps3iso_mount 2>/dev/null
+
+# Delete it completely
+sudo rm -rf /tmp/ps3iso_mount
