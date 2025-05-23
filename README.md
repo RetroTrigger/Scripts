@@ -111,6 +111,14 @@ curl -sSL https://raw.githubusercontent.com/RetroTrigger/.Scripts/master/vms2pro
   && ./vms2proxmox.sh
 ```
 
+## Network
+
+### NFS Mount Manager
+Manages NFS shares with an interactive menu. Can create new NFS shares and mount existing ones with systemd automount.
+```bash
+wget -O - https://raw.githubusercontent.com/RetroTrigger/.Scripts/master/nfs_mount_manager.sh | sudo bash
+```
+
 ## Gaming
 
 ### Linux Gaming Setup
