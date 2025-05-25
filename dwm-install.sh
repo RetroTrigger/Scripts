@@ -11,7 +11,6 @@ install_packages() {
         steam \
         xorg-server xorg-xinit xorg-xrandr xorg-xsetroot \
         git \
-        lightdm lightdm-gtk-greeter \
         base-devel \
         feh \
         lxappearance \
@@ -22,7 +21,7 @@ install_packages() {
         picom \
         flameshot \
         imagemagick \
-        ttf-dejavu ttf-liberation noto-fonts  # Basic fonts
+        ttf-dejavu ttf-liberation noto-fonts ttf-droid ttf-iosevka-nerd  # Basic and additional fonts
     
     # Install yay if not already installed
     if ! command -v yay &> /dev/null; then
@@ -55,38 +54,57 @@ compile_software() {
     [ -d "$HOME/.config/dmenu" ] && (cd ~/.config/dmenu && sudo make clean install)
 }
 
-setup_lightdm() {
-    echo "Setting up LightDM..."
-    sudo systemctl enable lightdm
-    
-    # Create lightdm config directory if it doesn't exist
-    sudo mkdir -p /etc/lightdm
-    
-    # Configure lightdm to use the greeter
-    echo "[Seat:*]\ngreeter-session=lightdm-gtk-greeter" | sudo tee /etc/lightdm/lightdm.conf
+setup_xinitrc() {
+    echo "Setting up .xinitrc..."
+    # Create .xinitrc if it doesn't exist
+    if [ ! -f ~/.xinitrc ]; then
+        echo "Creating ~/.xinitrc..."
+        echo "#!/bin/sh\n\n# Start DWM with mate-polkit\nexec mate-polkit &\nexec dwm" > ~/.xinitrc
+        chmod +x ~/.xinitrc
+    else
+        echo "~/.xinitrc already exists. Please add the following lines to start dwm with mate-polkit:"
+        echo "\n# Start DWM with mate-polkit"
+        echo "exec mate-polkit &"
+        echo "exec dwm"
+    fi
 }
 
-create_dwm_desktop_entry() {
-    echo "Creating dwm.desktop entry..."
-    sudo mkdir -p /usr/share/xsessions
+setup_autostart() {
+    echo "Setting up X and DWM autostart..."
+    local autostart_cmd='if [ -z "$DISPLAY" ] && [ "$(tty)" = "/dev/tty1" ]; then exec startx; fi'
     
-    # Create a proper desktop entry for dwm
-    echo "[Desktop Entry]\n\
-Name=Dwm\n\
-Comment=Dynamic Window Manager\n\
-Exec=dwm\n\
-Type=XSession" | sudo tee /usr/share/xsessions/dwm.desktop
+    # Check which shell profile files exist
+    local shell_rc=""
+    if [ -f "$HOME/.bash_profile" ]; then
+        shell_rc="$HOME/.bash_profile"
+    elif [ -f "$HOME/.bashrc" ]; then
+        shell_rc="$HOME/.bashrc"
+    else
+        shell_rc="$HOME/.bash_profile"
+        touch "$shell_rc"
+    fi
+    
+    # Check if autostart is already set up
+    if grep -q "exec startx" "$shell_rc"; then
+        echo "Autostart for X is already configured in $shell_rc"
+    else
+        echo "Adding X autostart to $shell_rc"
+        echo -e "\n# Auto-start X on tty1 login" >> "$shell_rc"
+        echo "$autostart_cmd" >> "$shell_rc"
+        echo "Autostart configuration added to $shell_rc"
+    fi
 }
 
 main() {
     install_packages
     clone_repositories
     compile_software
-    setup_lightdm
-    create_dwm_desktop_entry
+    setup_xinitrc
+    setup_autostart
     
-    echo "\nInstallation complete! Please reboot your system to start using DWM."
-    echo "You can select DWM from your display manager's session menu."
+    echo -e "\nInstallation complete!"
+    echo -e "\nTo start DWM, simply log in to tty1 and X will start automatically."
+    echo -e "If you need to start DWM manually, type 'startx' after logging in."
 }
 
 # Run the main function
