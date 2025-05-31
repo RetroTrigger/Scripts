@@ -7,10 +7,8 @@ MOUNT_ROOT="/mnt/nas"
 SYSTEMD_DIR="/etc/systemd/system"
 EXPORTS_FILE="/etc/exports"
 NFS_SHARES=(
-  "10.0.0.2:/volume1/backups"
-  "10.0.0.2:/volume1/media"
-  "10.0.0.3:/data/projects"
-  "10.0.0.4:/exports/iso"
+  "192.168.0.180:/volume1/media"
+  "192.168.0.180:/volume1/Proxmox_Backups"
 )
 
 # ==========================
