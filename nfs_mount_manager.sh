@@ -175,16 +175,16 @@ manage_mounts() {
           continue
         fi
 
-        # Create mount unit with improved options
+        # Create mount unit with improved options and proper escaping
         cat > "$SYSTEMD_DIR/$UNIT_NAME" <<EOF
 [Unit]
-Description=NFS Mount - $SHARE
+Description=NFS Mount for ${SHARE}
 After=network-online.target
 Wants=network-online.target
 
 [Mount]
-What=$SHARE
-Where=$MOUNT_PATH
+What=${SHARE}
+Where=${MOUNT_PATH}
 Type=nfs
 Options=rw,noatime,intr,_netdev
 TimeoutSec=60
@@ -193,16 +193,15 @@ TimeoutSec=60
 WantedBy=multi-user.target
 EOF
 
-        # Create automount unit
+        # Create automount unit with proper escaping
         cat > "$SYSTEMD_DIR/$AUTO_NAME" <<EOF
 [Unit]
-Description=AutoMount - $SHARE
+Description=AutoMount for ${SHARE}
 After=network-online.target
 Wants=network-online.target
 
 [Automount]
-Where=$MOUNT_PATH
-TimeoutIdleSec=600
+Where=${MOUNT_PATH}
 
 [Install]
 WantedBy=multi-user.target
