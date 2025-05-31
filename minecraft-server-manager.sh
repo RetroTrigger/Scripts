@@ -2,6 +2,12 @@
 
 # Minecraft Server Manager Script
 # This script handles both installation and updates for a Minecraft FTB server on Alpine Linux
+# Also provides Samba share functionality for the world folder
+
+# Samba configuration
+SAMBA_CONF="/etc/samba/smb.conf"
+SAMBA_SHARE_NAME="minecraft_world"
+# This script handles both installation and updates for a Minecraft FTB server on Alpine Linux
 
 # Define key directories and variables
 BASE_DIR="/opt"
@@ -77,6 +83,60 @@ check_for_new_version() {
         log "Failed to retrieve the latest version ID. Exiting..."
         return 2  # Return error code
     fi
+}
+
+# Function to set up Samba share for the Minecraft world
+setup_samba_share() {
+    log "Setting up Samba share for Minecraft world..."
+    
+    # Install Samba if not already installed
+    if ! command -v samba >/dev/null 2>&1; then
+        log "Installing Samba..."
+        apk add --no-cache samba samba-common-tools
+    fi
+    
+    # Create backup of existing Samba config if it exists
+    if [ -f "$SAMBA_CONF" ]; then
+        cp "$SAMBA_CONF" "${SAMBA_CONF}.bak"
+        log "Backed up existing Samba configuration to ${SAMBA_CONF}.bak"
+    fi
+    
+    # Configure Samba share
+    log "Configuring Samba share for $MINECRAFT_DIR/$WORLD_DIR..."
+    
+    # Set permissions on the world directory
+    chmod -R 777 "$MINECRAFT_DIR/$WORLD_DIR"
+    chown -R nobody:nobody "$MINECRAFT_DIR/$WORLD_DIR"
+    
+    # Add the share configuration to smb.conf
+    if ! grep -q "\[$SAMBA_SHARE_NAME\]" "$SAMBA_CONF" 2>/dev/null; then
+        cat << EOF >> "$SAMBA_CONF"
+
+[$SAMBA_SHARE_NAME]
+   comment = Minecraft World Folder
+   path = $MINECRAFT_DIR/$WORLD_DIR
+   browseable = yes
+   read only = no
+   writable = yes
+   guest ok = yes
+   create mask = 0777
+   directory mask = 0777
+   force create mode = 0777
+   force directory mode = 0777
+   force user = nobody
+   force group = nobody
+   public = yes
+EOF
+        log "Added Samba share configuration for $SAMBA_SHARE_NAME"
+    else
+        log "Samba share $SAMBA_SHARE_NAME already exists in $SAMBA_CONF"
+    fi
+    
+    # Ensure Samba service is enabled and started
+    rc-update add samba default 2>/dev/null || true
+    rc-service samba restart
+    
+    log "Samba share setup complete. You can access the share at \\$(hostname -I | awk '{print $1}')\minecraft_world"
 }
 
 # Function to download the latest server installer
@@ -386,12 +446,16 @@ case "$1" in
         log "Starting Minecraft server update check..."
         update_minecraft
         ;;
+    samba)
+        setup_samba_share
+        ;;
     *)
-        echo "Usage: $0 {install|update}"
+        echo "Usage: $0 {install|update|samba}"
         echo ""
         echo "Commands:"
         echo "  install - Install a new Minecraft server"
         echo "  update  - Check for and apply server updates"
+        echo "  samba   - Set up Samba share for Minecraft world folder"
         exit 1
         ;;
 esac
