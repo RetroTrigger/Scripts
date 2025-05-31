@@ -22,7 +22,15 @@ NFS_SHARES=(
 # Utility Functions
 # ==========================
 sanitize() {
-  echo "$1" | sed 's|[/:]|-|g'
+  # Convert slashes to single dashes, following systemd unit naming convention
+  echo "$1" | sed 's|/|-|g' | sed 's|:|-|g' | sed 's|--|-|g'
+}
+
+# Function to convert mount path to systemd unit name format
+path_to_unit_name() {
+  local path="$1"
+  # Remove leading slash and replace all slashes with dashes
+  echo "$path" | sed 's|^/||' | sed 's|/|-|g'
 }
 
 check_nfs_server() {
@@ -128,10 +136,14 @@ manage_mounts() {
   MOUNTED_SHARES=()
   
   for SHARE in "${NFS_SHARES[@]}"; do
-    SAFE_NAME=$(sanitize "$SHARE")
-    MOUNT_PATH="$MOUNT_ROOT/$SAFE_NAME"
-    UNIT_NAME="mnt-nas-${SAFE_NAME}.mount"
-    AUTO_NAME="mnt-nas-${SAFE_NAME}.automount"
+    # Create a proper directory name for the mountpoint
+    DIR_NAME=$(sanitize "$SHARE")
+    MOUNT_PATH="$MOUNT_ROOT/$DIR_NAME"
+    
+    # Get the proper systemd unit name for this path
+    UNIT_PATH=$(path_to_unit_name "$MOUNT_PATH")
+    UNIT_NAME="${UNIT_PATH}.mount"
+    AUTO_NAME="${UNIT_PATH}.automount"
     
     # Check if already mounted
     if mountpoint -q "$MOUNT_PATH" 2>/dev/null; then
@@ -157,10 +169,16 @@ manage_mounts() {
     if [ $? -eq 0 ] && [ -n "$SELECTED" ]; then
       for SHARE in $SELECTED; do
         SHARE=$(echo "$SHARE" | tr -d '"')
-        SAFE_NAME=$(sanitize "$SHARE")
-        MOUNT_PATH="$MOUNT_ROOT/$SAFE_NAME"
-        UNIT_NAME="mnt-nas-${SAFE_NAME}.mount"
-        AUTO_NAME="mnt-nas-${SAFE_NAME}.automount"
+        
+        # Create a proper directory name (can contain multiple dashes)
+        DIR_NAME=$(sanitize "$SHARE")
+        MOUNT_PATH="$MOUNT_ROOT/$DIR_NAME"
+        
+        # Create systemd unit names that follow the convention
+        # Unit name must match the mount point path with slashes replaced by dashes
+        UNIT_PATH=$(path_to_unit_name "$MOUNT_PATH")
+        UNIT_NAME="$UNIT_PATH.mount"
+        AUTO_NAME="$UNIT_PATH.automount"
 
         # Create mount directory if it doesn't exist
         if [ ! -d "$MOUNT_PATH" ]; then
@@ -266,11 +284,14 @@ EOF
     CHECKLIST=()
     for PATH_NAME in "${MOUNTED_PATHS[@]}"; do
       FULL_PATH="$MOUNT_ROOT/$PATH_NAME"
+      # Get the proper systemd unit name for this path
+      UNIT_PATH=$(path_to_unit_name "$FULL_PATH")
+      
       if mountpoint -q "$FULL_PATH" 2>/dev/null; then
         MOUNT_INFO=$(mount | grep "$FULL_PATH" | head -1)
         CHECKLIST+=("$PATH_NAME" "$MOUNT_INFO" "OFF")
-      elif [ -f "$SYSTEMD_DIR/mnt-nas-${PATH_NAME}.mount" ]; then
-        DESC=$(grep Description "$SYSTEMD_DIR/mnt-nas-${PATH_NAME}.mount" | cut -d' ' -f2-)
+      elif [ -f "$SYSTEMD_DIR/${UNIT_PATH}.mount" ]; then
+        DESC=$(grep Description "$SYSTEMD_DIR/${UNIT_PATH}.mount" | cut -d' ' -f2-)
         CHECKLIST+=("$PATH_NAME" "$DESC (Not mounted)" "OFF")
       else
         CHECKLIST+=("$PATH_NAME" "Directory only" "OFF")
@@ -287,18 +308,22 @@ EOF
           NAME=$(echo "$NAME" | tr -d '"')
           FULL_PATH="$MOUNT_ROOT/$NAME"
           
+          # Get the proper systemd unit name for this path
+          FULL_PATH="$MOUNT_ROOT/$NAME"
+          UNIT_PATH=$(path_to_unit_name "$FULL_PATH")
+          
           # Stop and disable systemd units if they exist
-          if [ -f "$SYSTEMD_DIR/mnt-nas-${NAME}.automount" ]; then
+          if [ -f "$SYSTEMD_DIR/${UNIT_PATH}.automount" ]; then
             echo "Disabling automount unit for $NAME..."
-            systemctl disable --now "mnt-nas-${NAME}.automount" 2>/dev/null
-            rm -f "$SYSTEMD_DIR/mnt-nas-${NAME}.automount"
+            systemctl disable --now "${UNIT_PATH}.automount" 2>/dev/null
+            rm -f "$SYSTEMD_DIR/${UNIT_PATH}.automount"
           fi
           
-          if [ -f "$SYSTEMD_DIR/mnt-nas-${NAME}.mount" ]; then
+          if [ -f "$SYSTEMD_DIR/${UNIT_PATH}.mount" ]; then
             echo "Disabling mount unit for $NAME..."
-            systemctl disable "mnt-nas-${NAME}.mount" 2>/dev/null
-            systemctl stop "mnt-nas-${NAME}.mount" 2>/dev/null
-            rm -f "$SYSTEMD_DIR/mnt-nas-${NAME}.mount"
+            systemctl disable "${UNIT_PATH}.mount" 2>/dev/null
+            systemctl stop "${UNIT_PATH}.mount" 2>/dev/null
+            rm -f "$SYSTEMD_DIR/${UNIT_PATH}.mount"
           fi
           
           # Unmount if still mounted
