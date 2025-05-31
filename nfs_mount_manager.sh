@@ -143,9 +143,10 @@ manage_mounts() {
     SAFE_NAME=$(sanitize "$SHARE")
     MOUNT_PATH="$MOUNT_ROOT/$SAFE_NAME"
     
-    # Use simplified unit naming
-    MOUNT_UNIT="mnt-nas-$SAFE_NAME.mount"
-    AUTO_UNIT="mnt-nas-$SAFE_NAME.automount"
+    # Create systemd unit names that match the mount point path exactly
+    UNIT_PATH=$(systemd-escape --path "$MOUNT_PATH")
+    MOUNT_UNIT="${UNIT_PATH}.mount"
+    AUTO_UNIT="${UNIT_PATH}.automount"
     
     # Check if already mounted
     if mountpoint -q "$MOUNT_PATH" 2>/dev/null; then
@@ -175,12 +176,6 @@ manage_mounts() {
         # Create a proper directory name (can contain multiple dashes)
         DIR_NAME=$(sanitize "$SHARE")
         MOUNT_PATH="$MOUNT_ROOT/$DIR_NAME"
-        
-        # Create systemd unit names that follow the convention
-        # Unit name must match the mount point path with slashes replaced by dashes
-        UNIT_PATH=$(path_to_unit_name "$MOUNT_PATH")
-        UNIT_NAME="$UNIT_PATH.mount"
-        AUTO_NAME="$UNIT_PATH.automount"
 
         # Create mount directory if it doesn't exist
         if [ ! -d "$MOUNT_PATH" ]; then
@@ -195,10 +190,11 @@ manage_mounts() {
           continue
         fi
         
-        # Create simplified unit files with standard naming
-        # Use the mount path directly for unit names
-        MOUNT_UNIT="mnt-nas-$SAFE_NAME.mount"
-        AUTO_UNIT="mnt-nas-$SAFE_NAME.automount"
+        # Create systemd unit names - CRITICAL: must match the mount point path exactly
+        # Convert the full mount path to a systemd unit name using systemd-escape
+        UNIT_PATH=$(systemd-escape --path "$MOUNT_PATH")
+        MOUNT_UNIT="${UNIT_PATH}.mount"
+        AUTO_UNIT="${UNIT_PATH}.automount"
         
         echo "Creating systemd units: $MOUNT_UNIT and $AUTO_UNIT"
 
@@ -285,10 +281,11 @@ EOF
     CHECKLIST=()
     for PATH_NAME in "${MOUNTED_PATHS[@]}"; do
       FULL_PATH="$MOUNT_ROOT/$PATH_NAME"
-      # Use simplified unit naming
-      SAFE_NAME="$PATH_NAME"
-      MOUNT_UNIT="mnt-nas-$SAFE_NAME.mount"
-      AUTO_UNIT="mnt-nas-$SAFE_NAME.automount"
+      # Create systemd unit names that match the mount point path exactly
+      FULL_PATH="$MOUNT_ROOT/$PATH_NAME"
+      UNIT_PATH=$(systemd-escape --path "$FULL_PATH")
+      MOUNT_UNIT="${UNIT_PATH}.mount"
+      AUTO_UNIT="${UNIT_PATH}.automount"
       
       if mountpoint -q "$FULL_PATH" 2>/dev/null; then
         MOUNT_INFO=$(mount | grep "$FULL_PATH" | head -1)
@@ -311,10 +308,11 @@ EOF
           NAME=$(echo "$NAME" | tr -d '"')
           FULL_PATH="$MOUNT_ROOT/$NAME"
           
-          # Use simplified unit naming
-          SAFE_NAME="$NAME"
-          MOUNT_UNIT="mnt-nas-$SAFE_NAME.mount"
-          AUTO_UNIT="mnt-nas-$SAFE_NAME.automount"
+          # Create systemd unit names that match the mount point path exactly
+          FULL_PATH="$MOUNT_ROOT/$NAME"
+          UNIT_PATH=$(systemd-escape --path "$FULL_PATH")
+          MOUNT_UNIT="${UNIT_PATH}.mount"
+          AUTO_UNIT="${UNIT_PATH}.automount"
           
           # Stop and disable systemd units if they exist
           if [ -f "$SYSTEMD_DIR/$AUTO_UNIT" ]; then
