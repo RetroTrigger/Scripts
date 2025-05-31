@@ -29,8 +29,11 @@ sanitize() {
 # Function to convert mount path to systemd unit name format
 path_to_unit_name() {
   local path="$1"
-  # Remove leading slash and replace all slashes with dashes
-  echo "$path" | sed 's|^/||' | sed 's|/|-|g'
+  # This must follow systemd's exact escaping rules:
+  # 1. Remove leading slash
+  # 2. Replace all slashes with single dashes
+  # 3. Escape other special characters
+  echo "$path" | sed 's|^/||' | sed 's|/|-|g' | sed 's|\.|\\.|g'
 }
 
 check_nfs_server() {
@@ -140,10 +143,11 @@ manage_mounts() {
     DIR_NAME=$(sanitize "$SHARE")
     MOUNT_PATH="$MOUNT_ROOT/$DIR_NAME"
     
-    # Get the proper systemd unit name for this path
-    UNIT_PATH=$(path_to_unit_name "$MOUNT_PATH")
-    UNIT_NAME="${UNIT_PATH}.mount"
-    AUTO_NAME="${UNIT_PATH}.automount"
+    # Get the canonical path and create systemd-compliant unit names
+    CANONICAL_PATH=$(readlink -f "$MOUNT_PATH" 2>/dev/null || echo "$MOUNT_PATH")
+    ESCAPED_PATH=$(systemd-escape --path "$CANONICAL_PATH")
+    UNIT_NAME="${ESCAPED_PATH}.mount"
+    AUTO_NAME="${ESCAPED_PATH}.automount"
     
     # Check if already mounted
     if mountpoint -q "$MOUNT_PATH" 2>/dev/null; then
@@ -192,6 +196,18 @@ manage_mounts() {
           whiptail --msgbox "$SHARE is already mounted at $MOUNT_PATH" 10 60
           continue
         fi
+        
+        # Create systemd-compliant unit names
+        # This is critical: systemd requires the unit filename to match the escaped mount path
+        # First, get the canonical path with no symlinks
+        CANONICAL_PATH=$(readlink -f "$MOUNT_PATH")
+        
+        # Create systemd-compliant unit name (must match exactly how systemd would escape it)
+        ESCAPED_PATH=$(systemd-escape --path "$CANONICAL_PATH")
+        UNIT_NAME="${ESCAPED_PATH}.mount"
+        AUTO_NAME="${ESCAPED_PATH}.automount"
+        
+        echo "Creating systemd units: $UNIT_NAME and $AUTO_NAME"
 
         # Create mount unit with improved options and proper escaping
         cat > "$SYSTEMD_DIR/$UNIT_NAME" <<EOF
@@ -202,7 +218,7 @@ Wants=network-online.target
 
 [Mount]
 What=${SHARE}
-Where=${MOUNT_PATH}
+Where=${CANONICAL_PATH}
 Type=nfs
 Options=rw,noatime,intr,_netdev
 TimeoutSec=60
@@ -219,7 +235,7 @@ After=network-online.target
 Wants=network-online.target
 
 [Automount]
-Where=${MOUNT_PATH}
+Where=${CANONICAL_PATH}
 
 [Install]
 WantedBy=multi-user.target
@@ -284,14 +300,15 @@ EOF
     CHECKLIST=()
     for PATH_NAME in "${MOUNTED_PATHS[@]}"; do
       FULL_PATH="$MOUNT_ROOT/$PATH_NAME"
-      # Get the proper systemd unit name for this path
-      UNIT_PATH=$(path_to_unit_name "$FULL_PATH")
+      # Get the canonical path and create systemd-compliant unit names
+      CANONICAL_PATH=$(readlink -f "$FULL_PATH" 2>/dev/null || echo "$FULL_PATH")
+      ESCAPED_PATH=$(systemd-escape --path "$CANONICAL_PATH")
       
       if mountpoint -q "$FULL_PATH" 2>/dev/null; then
         MOUNT_INFO=$(mount | grep "$FULL_PATH" | head -1)
         CHECKLIST+=("$PATH_NAME" "$MOUNT_INFO" "OFF")
-      elif [ -f "$SYSTEMD_DIR/${UNIT_PATH}.mount" ]; then
-        DESC=$(grep Description "$SYSTEMD_DIR/${UNIT_PATH}.mount" | cut -d' ' -f2-)
+      elif [ -f "$SYSTEMD_DIR/${ESCAPED_PATH}.mount" ]; then
+        DESC=$(grep Description "$SYSTEMD_DIR/${ESCAPED_PATH}.mount" | cut -d' ' -f2-)
         CHECKLIST+=("$PATH_NAME" "$DESC (Not mounted)" "OFF")
       else
         CHECKLIST+=("$PATH_NAME" "Directory only" "OFF")
@@ -308,22 +325,23 @@ EOF
           NAME=$(echo "$NAME" | tr -d '"')
           FULL_PATH="$MOUNT_ROOT/$NAME"
           
-          # Get the proper systemd unit name for this path
+          # Get the full path and create systemd-compliant unit names
           FULL_PATH="$MOUNT_ROOT/$NAME"
-          UNIT_PATH=$(path_to_unit_name "$FULL_PATH")
+          CANONICAL_PATH=$(readlink -f "$FULL_PATH")
+          ESCAPED_PATH=$(systemd-escape --path "$CANONICAL_PATH")
           
           # Stop and disable systemd units if they exist
-          if [ -f "$SYSTEMD_DIR/${UNIT_PATH}.automount" ]; then
+          if [ -f "$SYSTEMD_DIR/${ESCAPED_PATH}.automount" ]; then
             echo "Disabling automount unit for $NAME..."
-            systemctl disable --now "${UNIT_PATH}.automount" 2>/dev/null
-            rm -f "$SYSTEMD_DIR/${UNIT_PATH}.automount"
+            systemctl disable --now "${ESCAPED_PATH}.automount" 2>/dev/null
+            rm -f "$SYSTEMD_DIR/${ESCAPED_PATH}.automount"
           fi
           
-          if [ -f "$SYSTEMD_DIR/${UNIT_PATH}.mount" ]; then
+          if [ -f "$SYSTEMD_DIR/${ESCAPED_PATH}.mount" ]; then
             echo "Disabling mount unit for $NAME..."
-            systemctl disable "${UNIT_PATH}.mount" 2>/dev/null
-            systemctl stop "${UNIT_PATH}.mount" 2>/dev/null
-            rm -f "$SYSTEMD_DIR/${UNIT_PATH}.mount"
+            systemctl disable "${ESCAPED_PATH}.mount" 2>/dev/null
+            systemctl stop "${ESCAPED_PATH}.mount" 2>/dev/null
+            rm -f "$SYSTEMD_DIR/${ESCAPED_PATH}.mount"
           fi
           
           # Unmount if still mounted
