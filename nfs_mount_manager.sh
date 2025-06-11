@@ -7,6 +7,42 @@ if [ "$(id -u)" -ne 0 ]; then
 fi
 
 # ==========================
+# Dependency Helpers
+# ==========================
+
+install_packages() {
+  if command -v apt-get &> /dev/null; then
+    apt-get update
+    apt-get install -y "$@"
+  elif command -v yum &> /dev/null; then
+    yum install -y "$@"
+  elif command -v dnf &> /dev/null; then
+    dnf install -y "$@"
+  else
+    echo "Could not detect package manager. Please install: $*" >&2
+    exit 1
+  fi
+}
+
+check_dependencies() {
+  local missing=()
+  if ! command -v whiptail &> /dev/null; then
+    missing+=(whiptail)
+  fi
+  if ! command -v mount.nfs &> /dev/null; then
+    if command -v apt-get &> /dev/null; then
+      missing+=(nfs-common)
+    else
+      missing+=(nfs-utils)
+    fi
+  fi
+  if [ ${#missing[@]} -gt 0 ]; then
+    echo "Installing missing dependencies: ${missing[*]}"
+    install_packages "${missing[@]}"
+  fi
+}
+
+# ==========================
 # Configuration
 # ==========================
 MOUNT_ROOT="/mnt/nas"
@@ -38,17 +74,11 @@ path_to_unit_name() {
 
 check_nfs_server() {
   if ! command -v exportfs &> /dev/null; then
-    echo "NFS server tools not found. Installing nfs-kernel-server..."
+    echo "NFS server tools not found. Installing..."
     if command -v apt-get &> /dev/null; then
-      sudo apt-get update
-      sudo apt-get install -y nfs-kernel-server
-    elif command -v yum &> /dev/null; then
-      sudo yum install -y nfs-utils
-    elif command -v dnf &> /dev/null; then
-      sudo dnf install -y nfs-utils
+      install_packages nfs-kernel-server
     else
-      echo "Could not detect package manager. Please install NFS server tools manually."
-      exit 1
+      install_packages nfs-utils
     fi
   fi
 }
@@ -127,11 +157,14 @@ create_nfs_share() {
 # NFS Mount Management
 # ==========================
 manage_mounts() {
-  # Check if nfs-common is installed
+  # Check if nfs client utilities are installed
   if ! command -v mount.nfs &> /dev/null; then
-    whiptail --msgbox "NFS client tools not found. Installing nfs-common..." 10 60
-    apt-get update
-    apt-get install -y nfs-common
+    whiptail --msgbox "NFS client tools not found. Installing..." 10 60
+    if command -v apt-get &> /dev/null; then
+      install_packages nfs-common
+    else
+      install_packages nfs-utils
+    fi
   fi
 
   # Prepare list of available shares
@@ -465,6 +498,9 @@ main_menu() {
 
 # Create mount root if it doesn't exist
 mkdir -p "$MOUNT_ROOT"
+
+# Ensure runtime dependencies are present
+check_dependencies
 
 # Start the main menu
 main_menu
