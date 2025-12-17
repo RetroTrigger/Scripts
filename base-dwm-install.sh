@@ -54,6 +54,50 @@ install_packages() {
     install_third_party_packages
 }
 
+install_meslo_nerd_font() {
+    echo "Installing Meslo Nerd Font..."
+    local font_dir="$HOME/.local/share/fonts/Meslo"
+    local font_url="https://github.com/ryanoasis/nerd-fonts/releases/latest/download/Meslo.zip"
+    local temp_zip="/tmp/meslo_nerd_font.zip"
+
+    # Create font directory if it doesn't exist
+    mkdir -p "$font_dir"
+
+    # Install curl or wget if not available
+    if ! command -v curl &> /dev/null && ! command -v wget &> /dev/null; then
+        echo "Neither curl nor wget found. Installing curl..."
+        if ! eval $INSTALL_CMD curl; then
+            echo "Failed to install curl. Please install curl or wget manually and try again."
+            return 1
+        fi
+    fi
+
+    # Download the font
+    if command -v curl &> /dev/null; then
+        curl -L "$font_url" -o "$temp_zip"
+    else
+        wget -O "$temp_zip" "$font_url"
+    fi
+
+    # Install unzip if not available
+    if ! command -v unzip &> /dev/null; then
+        echo "unzip not found. Installing unzip..."
+        if ! eval $INSTALL_CMD unzip; then
+            echo "Failed to install unzip. Please install unzip manually and try again."
+            return 1
+        fi
+    fi
+
+    # Extract and install the font
+    unzip -o "$temp_zip" -d "$font_dir"
+    rm "$temp_zip"
+    # Update font cache
+    if command -v fc-cache &> /dev/null; then
+        fc-cache -f -v "$font_dir"
+    fi
+    echo "Meslo Nerd Font installed successfully!"
+}
+
 install_third_party_packages() {
     echo "Installing third-party packages..."
     case "$PKG_MANAGER" in
@@ -70,18 +114,17 @@ install_third_party_packages() {
             sudo curl -fsSLo /usr/share/keyrings/brave-browser-archive-keyring.gpg https://brave-browser-apt-release.s3.brave.com/brave-browser-archive-keyring.gpg
             echo "deb [signed-by=/usr/share/keyrings/brave-browser-archive-keyring.gpg] https://brave-browser-apt-release.s3.brave.com/ stable main" | sudo tee /etc/apt/sources.list.d/brave-browser-release.list
             eval $UPDATE_CMD
-            eval $INSTALL_CMD brave-browser
-            # Nerd Fonts
-            # apt does not have a direct equivalent for ttf-meslo-nerd-font-powerlevel10k, manual install would be needed.
-            echo "Please install Meslo Nerd Font manually for Debian/Ubuntu systems."
+            eval $INSTALL_CMD brave-browser unzip
+            # Install Meslo Nerd Font
+            install_meslo_nerd_font
             ;;
         "dnf")
             # Brave Browser
             sudo dnf config-manager --add-repo https://brave-browser-rpm-release.s3.brave.com/brave-browser.repo
             sudo rpm --import https://brave-browser-rpm-release.s3.brave.com/brave-core.asc
-            eval $INSTALL_CMD brave-browser
-            # Nerd Fonts
-            echo "Please install Meslo Nerd Font manually for Fedora systems."
+            eval $INSTALL_CMD brave-browser unzip
+            # Install Meslo Nerd Font
+            install_meslo_nerd_font
             ;;
     esac
 }
