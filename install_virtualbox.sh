@@ -167,11 +167,17 @@ install_extension_pack() {
             # Look for both URL-encoded (%5F for _) and regular format
             # Prefer the one without revision number (simpler, less likely to cause name mismatch)
             local ext_packs
-            # First try to find one without revision (just version number)
-            ext_packs=$(grep -oE 'Oracle[%_]VirtualBox[%_]Extension[%_]Pack-[0-9]+\.[0-9]+\.[0-9]+\.vbox-extpack' "$temp_list" | head -1)
-            # If not found, try with revision number
+            # Get all Extension Pack files
+            local all_packs
+            all_packs=$(grep -oE 'Oracle[%_]VirtualBox[%_]Extension[%_]Pack-[0-9.-]*\.vbox-extpack' "$temp_list")
+            
+            # First try to find one without revision: version.vbox-extpack (no dash-revision before extension)
+            # Pattern: ends with -X.Y.Z.vbox-extpack (not -X.Y.Z-revision.vbox-extpack)
+            ext_packs=$(echo "$all_packs" | grep -E '[0-9]+\.[0-9]+\.[0-9]+\.vbox-extpack$' | head -1)
+            
+            # If not found, use any Extension Pack (with revision)
             if [ -z "$ext_packs" ]; then
-                ext_packs=$(grep -oE 'Oracle[%_]VirtualBox[%_]Extension[%_]Pack-[0-9.-]*\.vbox-extpack' "$temp_list" | head -1)
+                ext_packs=$(echo "$all_packs" | head -1)
             fi
             
             if [ -n "$ext_packs" ]; then
@@ -191,11 +197,17 @@ install_extension_pack() {
             if curl -s -L -H "User-Agent: Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36" \
                    "$version_dir" -o "$temp_list" 2>/dev/null; then
                 local ext_packs
-                # First try to find one without revision (just version number)
-                ext_packs=$(grep -oE 'Oracle[%_]VirtualBox[%_]Extension[%_]Pack-[0-9]+\.[0-9]+\.[0-9]+\.vbox-extpack' "$temp_list" | head -1)
-                # If not found, try with revision number
+                # Get all Extension Pack files
+                local all_packs
+                all_packs=$(grep -oE 'Oracle[%_]VirtualBox[%_]Extension[%_]Pack-[0-9.-]*\.vbox-extpack' "$temp_list")
+                
+                # First try to find one without revision: version.vbox-extpack (no dash-revision before extension)
+                # Pattern: ends with -X.Y.Z.vbox-extpack (not -X.Y.Z-revision.vbox-extpack)
+                ext_packs=$(echo "$all_packs" | grep -E '[0-9]+\.[0-9]+\.[0-9]+\.vbox-extpack$' | head -1)
+                
+                # If not found, use any Extension Pack (with revision)
                 if [ -z "$ext_packs" ]; then
-                    ext_packs=$(grep -oE 'Oracle[%_]VirtualBox[%_]Extension[%_]Pack-[0-9.-]*\.vbox-extpack' "$temp_list" | head -1)
+                    ext_packs=$(echo "$all_packs" | head -1)
                 fi
                 
                 if [ -n "$ext_packs" ]; then
