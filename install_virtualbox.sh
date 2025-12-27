@@ -103,31 +103,62 @@ install_virtualbox() {
 install_extension_pack() {
     echo "Installing VirtualBox Extension Pack..."
     
-    # Get the latest version number
-    VBOX_VERSION=$(VBoxManage --version | cut -d'r' -f1)
+    # Check if VBoxManage is available
+    if ! command -v VBoxManage &> /dev/null; then
+        echo "Error: VBoxManage not found. VirtualBox may not be installed correctly."
+        return 1
+    fi
     
-    # Download the Extension Pack
-    wget https://download.virtualbox.org/virtualbox/${VBOX_VERSION}/Oracle_VM_VirtualBox_Extension_Pack-${VBOX_VERSION}.vbox-extpack -O /tmp/Oracle_VM_VirtualBox_Extension_Pack.vbox-extpack
+    # Get the full version string (e.g., "7.2.4r123456")
+    VBOX_FULL_VERSION=$(VBoxManage --version)
+    # Get the base version for the URL path (e.g., "7.2.4")
+    VBOX_VERSION=$(echo "$VBOX_FULL_VERSION" | cut -d'r' -f1)
+    
+    # Try downloading with full version first, then fall back to base version
+    EXT_PACK_URL="https://download.virtualbox.org/virtualbox/${VBOX_VERSION}/Oracle_VM_VirtualBox_Extension_Pack-${VBOX_FULL_VERSION}.vbox-extpack"
+    EXT_PACK_FILE="/tmp/Oracle_VM_VirtualBox_Extension_Pack.vbox-extpack"
+    
+    echo "Attempting to download Extension Pack from: $EXT_PACK_URL"
+    if ! wget "$EXT_PACK_URL" -O "$EXT_PACK_FILE" 2>/dev/null; then
+        # Fallback: try with base version only
+        echo "Trying alternative URL with base version..."
+        EXT_PACK_URL="https://download.virtualbox.org/virtualbox/${VBOX_VERSION}/Oracle_VM_VirtualBox_Extension_Pack-${VBOX_VERSION}.vbox-extpack"
+        if ! wget "$EXT_PACK_URL" -O "$EXT_PACK_FILE" 2>/dev/null; then
+            echo "Error: Could not download VirtualBox Extension Pack."
+            echo "Please download it manually from: https://www.virtualbox.org/wiki/Downloads"
+            return 1
+        fi
+    fi
     
     # Install the Extension Pack
-    echo "y" | sudo VBoxManage extpack install --replace /tmp/Oracle_VM_VirtualBox_Extension_Pack.vbox-extpack
+    echo "y" | sudo VBoxManage extpack install --replace "$EXT_PACK_FILE"
     
     # Clean up
-    rm /tmp/Oracle_VM_VirtualBox_Extension_Pack.vbox-extpack
+    rm -f "$EXT_PACK_FILE"
 }
 
 # Function to download Guest Additions ISO
 download_guest_additions() {
     echo "Downloading VirtualBox Guest Additions ISO..."
     
-    # Get the latest version number
-    VBOX_VERSION=$(VBoxManage --version | cut -d'r' -f1)
+    # Get the full version string (e.g., "7.2.4r123456")
+    VBOX_FULL_VERSION=$(VBoxManage --version)
+    # Get the base version for the URL path (e.g., "7.2.4")
+    VBOX_VERSION=$(echo "$VBOX_FULL_VERSION" | cut -d'r' -f1)
     
     # Create directory for Guest Additions if it doesn't exist
     mkdir -p ~/VirtualBox\ VMs/VirtualBox\ Guest\ Additions
     
-    # Download the ISO
-    wget https://download.virtualbox.org/virtualbox/${VBOX_VERSION}/VBoxGuestAdditions_${VBOX_VERSION}.iso -O ~/VirtualBox\ VMs/VirtualBox\ Guest\ Additions/VBoxGuestAdditions_${VBOX_VERSION}.iso
+    # Download the ISO (uses base version in filename)
+    GA_ISO_URL="https://download.virtualbox.org/virtualbox/${VBOX_VERSION}/VBoxGuestAdditions_${VBOX_FULL_VERSION}.iso"
+    GA_ISO_FILE="$HOME/VirtualBox VMs/VirtualBox Guest Additions/VBoxGuestAdditions_${VBOX_FULL_VERSION}.iso"
+    
+    if ! wget "$GA_ISO_URL" -O "$GA_ISO_FILE" 2>/dev/null; then
+        # Fallback: try with base version only
+        GA_ISO_URL="https://download.virtualbox.org/virtualbox/${VBOX_VERSION}/VBoxGuestAdditions_${VBOX_VERSION}.iso"
+        GA_ISO_FILE="$HOME/VirtualBox VMs/VirtualBox Guest Additions/VBoxGuestAdditions_${VBOX_VERSION}.iso"
+        wget "$GA_ISO_URL" -O "$GA_ISO_FILE"
+    fi
     
     echo "Guest Additions ISO downloaded to: ~/VirtualBox VMs/VirtualBox Guest Additions/"
 }
