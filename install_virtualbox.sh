@@ -105,6 +105,25 @@ install_dependencies() {
     esac
 }
 
+# Function to add user to vboxusers group (works for all distributions)
+add_user_to_vboxusers() {
+    # Check if vboxusers group exists (created during VirtualBox installation)
+    if ! getent group vboxusers > /dev/null 2>&1; then
+        echo "Warning: vboxusers group not found. Creating vboxusers group..."
+        sudo groupadd vboxusers 2>/dev/null || echo "Note: Group creation may have failed or group already exists."
+    fi
+    
+    # Check if user is already in the group
+    if groups | grep -q vboxusers; then
+        echo "User is already in vboxusers group."
+        return 0
+    fi
+    
+    echo "Adding user to vboxusers group..."
+    sudo usermod -aG vboxusers $USER
+    echo "User added to vboxusers group. You may need to log out and back in for this to take effect."
+}
+
 # Function to install VirtualBox
 install_virtualbox() {
     local distro=$1
@@ -123,7 +142,6 @@ install_virtualbox() {
         "arch"|"manjaro"|"endeavouros"|"garuda"|"cachyos")
             sudo pacman -S --noconfirm virtualbox virtualbox-host-modules-arch
             sudo modprobe vboxdrv vboxnetadp vboxnetflt
-            sudo usermod -aG vboxusers $USER
             ;;
         "opensuse-tumbleweed"|"opensuse-leap"|"sles")
             sudo zypper addrepo https://download.virtualbox.org/virtualbox/rpm/opensuse/$(grep -oP 'VERSION_ID="\K[0-9.]+' /etc/os-release | cut -d. -f1) virtualbox
@@ -212,6 +230,7 @@ main() {
     
     install_dependencies "$distro"
     install_virtualbox "$distro"
+    add_user_to_vboxusers
     install_extension_pack
     download_guest_additions
     
