@@ -113,10 +113,6 @@ install_extension_pack() {
     VBOX_FULL_VERSION=$(VBoxManage --version)
     # Get the base version for the URL path (e.g., "7.2.4")
     VBOX_VERSION=$(echo "$VBOX_FULL_VERSION" | cut -d'r' -f1)
-    # Get the revision number (e.g., "123456")
-    VBOX_REVISION=$(echo "$VBOX_FULL_VERSION" | cut -d'r' -f2)
-    # Convert 'r' to '-' for Extension Pack filename (e.g., "7.2.4-123456")
-    VBOX_EXT_VERSION=$(echo "$VBOX_FULL_VERSION" | sed 's/r/-/')
     
     EXT_PACK_FILE="/tmp/Oracle_VM_VirtualBox_Extension_Pack.vbox-extpack"
     
@@ -157,30 +153,6 @@ install_extension_pack() {
         return 1
     }
     
-    # Function to check if URL exists
-    check_url_exists() {
-        local url=$1
-        
-        # Try with wget --spider
-        if wget --spider --header="Accept: */*" \
-               --header="User-Agent: Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36" \
-               "$url" 2>/dev/null; then
-            return 0
-        fi
-        
-        # Alternative: use curl if available
-        if command -v curl &> /dev/null; then
-            if curl -s -f -o /dev/null -I \
-                   -H "Accept: */*" \
-                   -H "User-Agent: Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36" \
-                   "$url" 2>/dev/null; then
-                return 0
-            fi
-        fi
-        
-        return 1
-    }
-    
     # Function to discover available Extension Pack by checking directory listing
     discover_extension_pack() {
         local version_dir="https://download.virtualbox.org/virtualbox/${VBOX_VERSION}/"
@@ -191,14 +163,15 @@ install_extension_pack() {
         # Try to get directory listing
         if wget --header="User-Agent: Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36" \
                -O "$temp_list" "$version_dir" 2>/dev/null; then
-            # Extract Extension Pack filenames from the listing
+            # Extract Extension Pack filenames from the listing (handle URL encoding)
+            # Look for both URL-encoded (%5F for _) and regular format
             local ext_packs
-            ext_packs=$(grep -o 'Oracle_VM_VirtualBox_Extension_Pack-[0-9.-]*\.vbox-extpack' "$temp_list" | head -1)
+            ext_packs=$(grep -oE 'Oracle[%_]VirtualBox[%_]Extension[%_]Pack-[0-9.-]*\.vbox-extpack' "$temp_list" | head -1)
             
             if [ -n "$ext_packs" ]; then
-                # Found Extension Pack in directory listing
+                # Decode URL encoding: %5F -> _, %2E -> .
                 local found_pack
-                found_pack=$(echo "$ext_packs" | head -1)
+                found_pack=$(echo "$ext_packs" | sed 's/%5F/_/g' | sed 's/%2E/./g' | sed 's/%2D/-/g')
                 echo "Found Extension Pack: $found_pack"
                 EXT_PACK_URL="${version_dir}${found_pack}"
                 rm -f "$temp_list"
@@ -212,11 +185,12 @@ install_extension_pack() {
             if curl -s -L -H "User-Agent: Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36" \
                    "$version_dir" -o "$temp_list" 2>/dev/null; then
                 local ext_packs
-                ext_packs=$(grep -o 'Oracle_VM_VirtualBox_Extension_Pack-[0-9.-]*\.vbox-extpack' "$temp_list" | head -1)
+                ext_packs=$(grep -oE 'Oracle[%_]VirtualBox[%_]Extension[%_]Pack-[0-9.-]*\.vbox-extpack' "$temp_list" | head -1)
                 
                 if [ -n "$ext_packs" ]; then
+                    # Decode URL encoding
                     local found_pack
-                    found_pack=$(echo "$ext_packs" | head -1)
+                    found_pack=$(echo "$ext_packs" | sed 's/%5F/_/g' | sed 's/%2E/./g' | sed 's/%2D/-/g')
                     echo "Found Extension Pack: $found_pack"
                     EXT_PACK_URL="${version_dir}${found_pack}"
                     rm -f "$temp_list"
@@ -242,48 +216,18 @@ install_extension_pack() {
         fi
     fi
     
-    # If discovery didn't work or download failed, try exact version match
+    # If discovery didn't work or download failed, try fallback with base version
     if [ ! -f "$EXT_PACK_FILE" ] || [ ! -s "$EXT_PACK_FILE" ]; then
-        EXT_PACK_URL="https://download.virtualbox.org/virtualbox/${VBOX_VERSION}/Oracle_VM_VirtualBox_Extension_Pack-${VBOX_EXT_VERSION}.vbox-extpack"
-        echo "Attempting to download Extension Pack from: $EXT_PACK_URL"
-        
-        if download_file "$EXT_PACK_URL" "$EXT_PACK_FILE"; then
-            echo "Successfully downloaded Extension Pack"
-        else
-            # Try variations: check if Extension Pack revision differs from main version
-            echo "Trying to find compatible Extension Pack version..."
-            
-            # Try a wider range of revision number variations
-            if [ -n "$VBOX_REVISION" ] && [ "$VBOX_REVISION" -eq "$VBOX_REVISION" ] 2>/dev/null; then
-                for rev_offset in 0 -1 -2 -3 -4 -5 1 2 3 4 5; do
-                    test_rev=$((VBOX_REVISION + rev_offset))
-                    test_ext_version="${VBOX_VERSION}-${test_rev}"
-                    test_url="https://download.virtualbox.org/virtualbox/${VBOX_VERSION}/Oracle_VM_VirtualBox_Extension_Pack-${test_ext_version}.vbox-extpack"
-                    
-                    if check_url_exists "$test_url"; then
-                        echo "Found Extension Pack at: $test_url"
-                        if download_file "$test_url" "$EXT_PACK_FILE"; then
-                            echo "Successfully downloaded Extension Pack"
-                            break
-                        fi
-                    fi
-                done
-            fi
-            
-            # If still not found, try base version only
-            if [ ! -f "$EXT_PACK_FILE" ] || [ ! -s "$EXT_PACK_FILE" ]; then
-                echo "Trying with base version only..."
-                EXT_PACK_URL="https://download.virtualbox.org/virtualbox/${VBOX_VERSION}/Oracle_VM_VirtualBox_Extension_Pack-${VBOX_VERSION}.vbox-extpack"
-                if ! download_file "$EXT_PACK_URL" "$EXT_PACK_FILE"; then
-                    echo "Error: Could not download VirtualBox Extension Pack automatically."
-                    echo "VirtualBox version: $VBOX_FULL_VERSION"
-                    echo "Please check what Extension Packs are available at:"
-                    echo "  https://download.virtualbox.org/virtualbox/${VBOX_VERSION}/"
-                    echo "Or download manually from:"
-                    echo "  https://www.virtualbox.org/wiki/Downloads"
-                    return 1
-                fi
-            fi
+        echo "Discovery failed, trying base version fallback..."
+        EXT_PACK_URL="https://download.virtualbox.org/virtualbox/${VBOX_VERSION}/Oracle_VirtualBox_Extension_Pack-${VBOX_VERSION}.vbox-extpack"
+        if ! download_file "$EXT_PACK_URL" "$EXT_PACK_FILE"; then
+            echo "Error: Could not download VirtualBox Extension Pack automatically."
+            echo "VirtualBox version: $VBOX_FULL_VERSION"
+            echo "Please check what Extension Packs are available at:"
+            echo "  https://download.virtualbox.org/virtualbox/${VBOX_VERSION}/"
+            echo "Or download manually from:"
+            echo "  https://www.virtualbox.org/wiki/Downloads"
+            return 1
         fi
     fi
     
@@ -312,6 +256,10 @@ download_guest_additions() {
     # Create directory for Guest Additions if it doesn't exist
     mkdir -p ~/VirtualBox\ VMs/VirtualBox\ Guest\ Additions
     
+    # Initialize variables
+    GA_ISO_URL=""
+    GA_ISO_FILE=""
+    
     # Function to download file (same as Extension Pack function)
     download_file() {
         local url=$1
@@ -337,15 +285,81 @@ download_guest_additions() {
         return 1
     }
     
-    # Download the ISO (uses base version in filename)
-    GA_ISO_URL="https://download.virtualbox.org/virtualbox/${VBOX_VERSION}/VBoxGuestAdditions_${VBOX_FULL_VERSION}.iso"
-    GA_ISO_FILE="$HOME/VirtualBox VMs/VirtualBox Guest Additions/VBoxGuestAdditions_${VBOX_FULL_VERSION}.iso"
+    # Function to discover available Guest Additions ISO by checking directory listing
+    discover_guest_additions() {
+        local version_dir="https://download.virtualbox.org/virtualbox/${VBOX_VERSION}/"
+        local temp_list="/tmp/vbox_dir_list_ga.txt"
+        
+        echo "Checking available Guest Additions ISO in version directory..."
+        
+        # Try to get directory listing
+        if wget --header="User-Agent: Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36" \
+               -O "$temp_list" "$version_dir" 2>/dev/null; then
+            # Extract Guest Additions ISO filename from the listing (handle URL encoding)
+            local ga_iso
+            ga_iso=$(grep -oE 'VBoxGuestAdditions[%_][0-9.]+\.iso' "$temp_list" | head -1)
+            
+            if [ -n "$ga_iso" ]; then
+                # Decode URL encoding: %5F -> _, %2E -> .
+                local found_iso
+                found_iso=$(echo "$ga_iso" | sed 's/%5F/_/g' | sed 's/%2E/./g')
+                echo "Found Guest Additions ISO: $found_iso"
+                GA_ISO_URL="${version_dir}${found_iso}"
+                rm -f "$temp_list"
+                return 0
+            fi
+            rm -f "$temp_list"
+        fi
+        
+        # Alternative: try with curl
+        if command -v curl &> /dev/null; then
+            if curl -s -L -H "User-Agent: Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36" \
+                   "$version_dir" -o "$temp_list" 2>/dev/null; then
+                local ga_iso
+                ga_iso=$(grep -oE 'VBoxGuestAdditions[%_][0-9.]+\.iso' "$temp_list" | head -1)
+                
+                if [ -n "$ga_iso" ]; then
+                    # Decode URL encoding
+                    local found_iso
+                    found_iso=$(echo "$ga_iso" | sed 's/%5F/_/g' | sed 's/%2E/./g')
+                    echo "Found Guest Additions ISO: $found_iso"
+                    GA_ISO_URL="${version_dir}${found_iso}"
+                    rm -f "$temp_list"
+                    return 0
+                fi
+                rm -f "$temp_list"
+            fi
+        fi
+        
+        return 1
+    }
     
-    if ! download_file "$GA_ISO_URL" "$GA_ISO_FILE"; then
-        # Fallback: try with base version only
+    # Try to discover Guest Additions ISO first
+    if discover_guest_additions; then
+        # Use discovered filename for the local file
+        local discovered_filename
+        discovered_filename=$(basename "$GA_ISO_URL")
+        GA_ISO_FILE="$HOME/VirtualBox VMs/VirtualBox Guest Additions/${discovered_filename}"
+        echo "Attempting to download Guest Additions from: $GA_ISO_URL"
+        if download_file "$GA_ISO_URL" "$GA_ISO_FILE"; then
+            echo "Successfully downloaded Guest Additions ISO"
+        else
+            echo "Failed to download discovered Guest Additions, trying fallback methods..."
+        fi
+    fi
+    
+    # If discovery didn't work or download failed, try constructed URLs
+    if [ -z "$GA_ISO_FILE" ] || [ ! -f "$GA_ISO_FILE" ] || [ ! -s "$GA_ISO_FILE" ]; then
+        # Try with base version first (most common format: VBoxGuestAdditions_7.2.4.iso)
         GA_ISO_URL="https://download.virtualbox.org/virtualbox/${VBOX_VERSION}/VBoxGuestAdditions_${VBOX_VERSION}.iso"
         GA_ISO_FILE="$HOME/VirtualBox VMs/VirtualBox Guest Additions/VBoxGuestAdditions_${VBOX_VERSION}.iso"
-        download_file "$GA_ISO_URL" "$GA_ISO_FILE"
+        
+        if ! download_file "$GA_ISO_URL" "$GA_ISO_FILE"; then
+            # Fallback: try with full version (less common)
+            GA_ISO_URL="https://download.virtualbox.org/virtualbox/${VBOX_VERSION}/VBoxGuestAdditions_${VBOX_FULL_VERSION}.iso"
+            GA_ISO_FILE="$HOME/VirtualBox VMs/VirtualBox Guest Additions/VBoxGuestAdditions_${VBOX_FULL_VERSION}.iso"
+            download_file "$GA_ISO_URL" "$GA_ISO_FILE"
+        fi
     fi
     
     echo "Guest Additions ISO downloaded to: ~/VirtualBox VMs/VirtualBox Guest Additions/"
