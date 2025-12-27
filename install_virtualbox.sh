@@ -181,47 +181,108 @@ install_extension_pack() {
         return 1
     }
     
+    # Function to discover available Extension Pack by checking directory listing
+    discover_extension_pack() {
+        local version_dir="https://download.virtualbox.org/virtualbox/${VBOX_VERSION}/"
+        local temp_list="/tmp/vbox_dir_list.txt"
+        
+        echo "Checking available Extension Packs in version directory..."
+        
+        # Try to get directory listing
+        if wget --header="User-Agent: Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36" \
+               -O "$temp_list" "$version_dir" 2>/dev/null; then
+            # Extract Extension Pack filenames from the listing
+            local ext_packs
+            ext_packs=$(grep -o 'Oracle_VM_VirtualBox_Extension_Pack-[0-9.-]*\.vbox-extpack' "$temp_list" | head -1)
+            
+            if [ -n "$ext_packs" ]; then
+                # Found Extension Pack in directory listing
+                local found_pack
+                found_pack=$(echo "$ext_packs" | head -1)
+                echo "Found Extension Pack: $found_pack"
+                EXT_PACK_URL="${version_dir}${found_pack}"
+                rm -f "$temp_list"
+                return 0
+            fi
+            rm -f "$temp_list"
+        fi
+        
+        # Alternative: try with curl
+        if command -v curl &> /dev/null; then
+            if curl -s -L -H "User-Agent: Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36" \
+                   "$version_dir" -o "$temp_list" 2>/dev/null; then
+                local ext_packs
+                ext_packs=$(grep -o 'Oracle_VM_VirtualBox_Extension_Pack-[0-9.-]*\.vbox-extpack' "$temp_list" | head -1)
+                
+                if [ -n "$ext_packs" ]; then
+                    local found_pack
+                    found_pack=$(echo "$ext_packs" | head -1)
+                    echo "Found Extension Pack: $found_pack"
+                    EXT_PACK_URL="${version_dir}${found_pack}"
+                    rm -f "$temp_list"
+                    return 0
+                fi
+                rm -f "$temp_list"
+            fi
+        fi
+        
+        return 1
+    }
+    
     # Try to discover the Extension Pack version by checking the directory
     echo "Discovering available Extension Pack version..."
     
-    # First, try the exact version match
-    EXT_PACK_URL="https://download.virtualbox.org/virtualbox/${VBOX_VERSION}/Oracle_VM_VirtualBox_Extension_Pack-${VBOX_EXT_VERSION}.vbox-extpack"
-    echo "Attempting to download Extension Pack from: $EXT_PACK_URL"
-    
-    if download_file "$EXT_PACK_URL" "$EXT_PACK_FILE"; then
-        echo "Successfully downloaded Extension Pack"
-    else
-        # Try variations: check if Extension Pack revision differs from main version
-        echo "Trying to find compatible Extension Pack version..."
-        
-        # Try a few revision number variations (sometimes Extension Pack has different revision)
-        if [ -n "$VBOX_REVISION" ] && [ "$VBOX_REVISION" -eq "$VBOX_REVISION" ] 2>/dev/null; then
-            for rev_offset in 0 -1 -2 -3 1 2 3; do
-                test_rev=$((VBOX_REVISION + rev_offset))
-                test_ext_version="${VBOX_VERSION}-${test_rev}"
-                test_url="https://download.virtualbox.org/virtualbox/${VBOX_VERSION}/Oracle_VM_VirtualBox_Extension_Pack-${test_ext_version}.vbox-extpack"
-                
-                if check_url_exists "$test_url"; then
-                    echo "Found Extension Pack at: $test_url"
-                    if download_file "$test_url" "$EXT_PACK_FILE"; then
-                        echo "Successfully downloaded Extension Pack"
-                        break
-                    fi
-                fi
-            done
+    # First, try to discover what Extension Packs are actually available
+    if discover_extension_pack; then
+        echo "Attempting to download Extension Pack from: $EXT_PACK_URL"
+        if download_file "$EXT_PACK_URL" "$EXT_PACK_FILE"; then
+            echo "Successfully downloaded Extension Pack"
+        else
+            echo "Failed to download discovered Extension Pack, trying fallback methods..."
         fi
+    fi
+    
+    # If discovery didn't work or download failed, try exact version match
+    if [ ! -f "$EXT_PACK_FILE" ] || [ ! -s "$EXT_PACK_FILE" ]; then
+        EXT_PACK_URL="https://download.virtualbox.org/virtualbox/${VBOX_VERSION}/Oracle_VM_VirtualBox_Extension_Pack-${VBOX_EXT_VERSION}.vbox-extpack"
+        echo "Attempting to download Extension Pack from: $EXT_PACK_URL"
         
-        # If still not found, try base version only
-        if [ ! -f "$EXT_PACK_FILE" ] || [ ! -s "$EXT_PACK_FILE" ]; then
-            echo "Trying with base version only..."
-            EXT_PACK_URL="https://download.virtualbox.org/virtualbox/${VBOX_VERSION}/Oracle_VM_VirtualBox_Extension_Pack-${VBOX_VERSION}.vbox-extpack"
-            if ! download_file "$EXT_PACK_URL" "$EXT_PACK_FILE"; then
-                echo "Error: Could not download VirtualBox Extension Pack automatically."
-                echo "VirtualBox version: $VBOX_FULL_VERSION"
-                echo "Please download the Extension Pack manually from:"
-                echo "  https://www.virtualbox.org/wiki/Downloads"
-                echo "  Or check: https://download.virtualbox.org/virtualbox/${VBOX_VERSION}/"
-                return 1
+        if download_file "$EXT_PACK_URL" "$EXT_PACK_FILE"; then
+            echo "Successfully downloaded Extension Pack"
+        else
+            # Try variations: check if Extension Pack revision differs from main version
+            echo "Trying to find compatible Extension Pack version..."
+            
+            # Try a wider range of revision number variations
+            if [ -n "$VBOX_REVISION" ] && [ "$VBOX_REVISION" -eq "$VBOX_REVISION" ] 2>/dev/null; then
+                for rev_offset in 0 -1 -2 -3 -4 -5 1 2 3 4 5; do
+                    test_rev=$((VBOX_REVISION + rev_offset))
+                    test_ext_version="${VBOX_VERSION}-${test_rev}"
+                    test_url="https://download.virtualbox.org/virtualbox/${VBOX_VERSION}/Oracle_VM_VirtualBox_Extension_Pack-${test_ext_version}.vbox-extpack"
+                    
+                    if check_url_exists "$test_url"; then
+                        echo "Found Extension Pack at: $test_url"
+                        if download_file "$test_url" "$EXT_PACK_FILE"; then
+                            echo "Successfully downloaded Extension Pack"
+                            break
+                        fi
+                    fi
+                done
+            fi
+            
+            # If still not found, try base version only
+            if [ ! -f "$EXT_PACK_FILE" ] || [ ! -s "$EXT_PACK_FILE" ]; then
+                echo "Trying with base version only..."
+                EXT_PACK_URL="https://download.virtualbox.org/virtualbox/${VBOX_VERSION}/Oracle_VM_VirtualBox_Extension_Pack-${VBOX_VERSION}.vbox-extpack"
+                if ! download_file "$EXT_PACK_URL" "$EXT_PACK_FILE"; then
+                    echo "Error: Could not download VirtualBox Extension Pack automatically."
+                    echo "VirtualBox version: $VBOX_FULL_VERSION"
+                    echo "Please check what Extension Packs are available at:"
+                    echo "  https://download.virtualbox.org/virtualbox/${VBOX_VERSION}/"
+                    echo "Or download manually from:"
+                    echo "  https://www.virtualbox.org/wiki/Downloads"
+                    return 1
+                fi
             fi
         fi
     fi
