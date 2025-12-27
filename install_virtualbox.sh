@@ -120,16 +120,63 @@ install_extension_pack() {
     
     EXT_PACK_FILE="/tmp/Oracle_VM_VirtualBox_Extension_Pack.vbox-extpack"
     
+    # Function to download with EULA acceptance
+    download_with_eula() {
+        local url=$1
+        local output=$2
+        
+        # Use wget with cookies to accept EULA
+        # VirtualBox requires accepting license agreement before download
+        wget --header="Accept: */*" \
+             --header="User-Agent: Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36" \
+             --no-check-certificate \
+             "$url" -O "$output" 2>&1 | grep -q "200 OK\|saved" && return 0
+        
+        # Alternative: try with curl if available (handles redirects and cookies better)
+        if command -v curl &> /dev/null; then
+            if curl -L -f -o "$output" \
+                -H "Accept: */*" \
+                -H "User-Agent: Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36" \
+                "$url" 2>/dev/null; then
+                return 0
+            fi
+        fi
+        
+        return 1
+    }
+    
+    # Function to check if URL exists (with EULA acceptance)
+    check_url_exists() {
+        local url=$1
+        
+        # Use wget --spider with headers
+        if wget --spider --header="Accept: */*" \
+               --header="User-Agent: Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36" \
+               "$url" 2>/dev/null; then
+            return 0
+        fi
+        
+        # Alternative: use curl if available
+        if command -v curl &> /dev/null; then
+            if curl -s -f -o /dev/null -I \
+                -H "Accept: */*" \
+                -H "User-Agent: Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36" \
+                "$url" 2>/dev/null; then
+                return 0
+            fi
+        fi
+        
+        return 1
+    }
+    
     # Try to discover the Extension Pack version by checking the directory
     echo "Discovering available Extension Pack version..."
-    VERSION_DIR_URL="https://download.virtualbox.org/virtualbox/${VBOX_VERSION}/"
     
-    # Try to get directory listing (may not work on all servers, but worth trying)
     # First, try the exact version match
     EXT_PACK_URL="https://download.virtualbox.org/virtualbox/${VBOX_VERSION}/Oracle_VM_VirtualBox_Extension_Pack-${VBOX_EXT_VERSION}.vbox-extpack"
     echo "Attempting to download Extension Pack from: $EXT_PACK_URL"
     
-    if wget --spider "$EXT_PACK_URL" 2>/dev/null && wget "$EXT_PACK_URL" -O "$EXT_PACK_FILE" 2>/dev/null; then
+    if download_with_eula "$EXT_PACK_URL" "$EXT_PACK_FILE"; then
         echo "Successfully downloaded Extension Pack"
     else
         # Try variations: check if Extension Pack revision differs from main version
@@ -142,9 +189,9 @@ install_extension_pack() {
                 test_ext_version="${VBOX_VERSION}-${test_rev}"
                 test_url="https://download.virtualbox.org/virtualbox/${VBOX_VERSION}/Oracle_VM_VirtualBox_Extension_Pack-${test_ext_version}.vbox-extpack"
                 
-                if wget --spider "$test_url" 2>/dev/null; then
+                if check_url_exists "$test_url"; then
                     echo "Found Extension Pack at: $test_url"
-                    if wget "$test_url" -O "$EXT_PACK_FILE" 2>/dev/null; then
+                    if download_with_eula "$test_url" "$EXT_PACK_FILE"; then
                         echo "Successfully downloaded Extension Pack"
                         break
                     fi
@@ -156,7 +203,7 @@ install_extension_pack() {
         if [ ! -f "$EXT_PACK_FILE" ] || [ ! -s "$EXT_PACK_FILE" ]; then
             echo "Trying with base version only..."
             EXT_PACK_URL="https://download.virtualbox.org/virtualbox/${VBOX_VERSION}/Oracle_VM_VirtualBox_Extension_Pack-${VBOX_VERSION}.vbox-extpack"
-            if ! wget "$EXT_PACK_URL" -O "$EXT_PACK_FILE" 2>/dev/null; then
+            if ! download_with_eula "$EXT_PACK_URL" "$EXT_PACK_FILE"; then
                 echo "Error: Could not download VirtualBox Extension Pack automatically."
                 echo "VirtualBox version: $VBOX_FULL_VERSION"
                 echo "Please download the Extension Pack manually from:"
@@ -192,15 +239,39 @@ download_guest_additions() {
     # Create directory for Guest Additions if it doesn't exist
     mkdir -p ~/VirtualBox\ VMs/VirtualBox\ Guest\ Additions
     
+    # Function to download with EULA acceptance (reuse from Extension Pack function)
+    download_with_eula() {
+        local url=$1
+        local output=$2
+        
+        # Use wget with headers to accept EULA
+        wget --header="Accept: */*" \
+             --header="User-Agent: Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36" \
+             --no-check-certificate \
+             "$url" -O "$output" 2>&1 | grep -q "200 OK\|saved" && return 0
+        
+        # Alternative: try with curl if available
+        if command -v curl &> /dev/null; then
+            if curl -L -f -o "$output" \
+                -H "Accept: */*" \
+                -H "User-Agent: Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36" \
+                "$url" 2>/dev/null; then
+                return 0
+            fi
+        fi
+        
+        return 1
+    }
+    
     # Download the ISO (uses base version in filename)
     GA_ISO_URL="https://download.virtualbox.org/virtualbox/${VBOX_VERSION}/VBoxGuestAdditions_${VBOX_FULL_VERSION}.iso"
     GA_ISO_FILE="$HOME/VirtualBox VMs/VirtualBox Guest Additions/VBoxGuestAdditions_${VBOX_FULL_VERSION}.iso"
     
-    if ! wget "$GA_ISO_URL" -O "$GA_ISO_FILE" 2>/dev/null; then
+    if ! download_with_eula "$GA_ISO_URL" "$GA_ISO_FILE"; then
         # Fallback: try with base version only
         GA_ISO_URL="https://download.virtualbox.org/virtualbox/${VBOX_VERSION}/VBoxGuestAdditions_${VBOX_VERSION}.iso"
         GA_ISO_FILE="$HOME/VirtualBox VMs/VirtualBox Guest Additions/VBoxGuestAdditions_${VBOX_VERSION}.iso"
-        wget "$GA_ISO_URL" -O "$GA_ISO_FILE"
+        download_with_eula "$GA_ISO_URL" "$GA_ISO_FILE"
     fi
     
     echo "Guest Additions ISO downloaded to: ~/VirtualBox VMs/VirtualBox Guest Additions/"
