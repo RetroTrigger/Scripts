@@ -165,8 +165,14 @@ install_extension_pack() {
                -O "$temp_list" "$version_dir" 2>/dev/null; then
             # Extract Extension Pack filenames from the listing (handle URL encoding)
             # Look for both URL-encoded (%5F for _) and regular format
+            # Prefer the one without revision number (simpler, less likely to cause name mismatch)
             local ext_packs
-            ext_packs=$(grep -oE 'Oracle[%_]VirtualBox[%_]Extension[%_]Pack-[0-9.-]*\.vbox-extpack' "$temp_list" | head -1)
+            # First try to find one without revision (just version number)
+            ext_packs=$(grep -oE 'Oracle[%_]VirtualBox[%_]Extension[%_]Pack-[0-9]+\.[0-9]+\.[0-9]+\.vbox-extpack' "$temp_list" | head -1)
+            # If not found, try with revision number
+            if [ -z "$ext_packs" ]; then
+                ext_packs=$(grep -oE 'Oracle[%_]VirtualBox[%_]Extension[%_]Pack-[0-9.-]*\.vbox-extpack' "$temp_list" | head -1)
+            fi
             
             if [ -n "$ext_packs" ]; then
                 # Decode URL encoding: %5F -> _, %2E -> .
@@ -185,7 +191,12 @@ install_extension_pack() {
             if curl -s -L -H "User-Agent: Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36" \
                    "$version_dir" -o "$temp_list" 2>/dev/null; then
                 local ext_packs
-                ext_packs=$(grep -oE 'Oracle[%_]VirtualBox[%_]Extension[%_]Pack-[0-9.-]*\.vbox-extpack' "$temp_list" | head -1)
+                # First try to find one without revision (just version number)
+                ext_packs=$(grep -oE 'Oracle[%_]VirtualBox[%_]Extension[%_]Pack-[0-9]+\.[0-9]+\.[0-9]+\.vbox-extpack' "$temp_list" | head -1)
+                # If not found, try with revision number
+                if [ -z "$ext_packs" ]; then
+                    ext_packs=$(grep -oE 'Oracle[%_]VirtualBox[%_]Extension[%_]Pack-[0-9.-]*\.vbox-extpack' "$temp_list" | head -1)
+                fi
                 
                 if [ -n "$ext_packs" ]; then
                     # Decode URL encoding
@@ -237,11 +248,16 @@ install_extension_pack() {
         return 1
     fi
     
+    # Rename the file to a simpler name that VBoxManage expects
+    # VBoxManage compares the filename to the XML metadata, so use a name that matches
+    SIMPLE_EXT_PACK_FILE="/tmp/Oracle_VirtualBox_Extension_Pack.vbox-extpack"
+    cp "$EXT_PACK_FILE" "$SIMPLE_EXT_PACK_FILE"
+    
     # Install the Extension Pack
-    echo "y" | sudo VBoxManage extpack install --replace "$EXT_PACK_FILE"
+    echo "y" | sudo VBoxManage extpack install --replace "$SIMPLE_EXT_PACK_FILE"
     
     # Clean up
-    rm -f "$EXT_PACK_FILE"
+    rm -f "$EXT_PACK_FILE" "$SIMPLE_EXT_PACK_FILE"
 }
 
 # Function to download Guest Additions ISO
