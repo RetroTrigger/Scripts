@@ -113,20 +113,27 @@ install_extension_pack() {
     VBOX_FULL_VERSION=$(VBoxManage --version)
     # Get the base version for the URL path (e.g., "7.2.4")
     VBOX_VERSION=$(echo "$VBOX_FULL_VERSION" | cut -d'r' -f1)
+    # Convert 'r' to '-' for Extension Pack filename (e.g., "7.2.4-123456")
+    VBOX_EXT_VERSION=$(echo "$VBOX_FULL_VERSION" | sed 's/r/-/')
     
-    # Try downloading with full version first, then fall back to base version
-    EXT_PACK_URL="https://download.virtualbox.org/virtualbox/${VBOX_VERSION}/Oracle_VM_VirtualBox_Extension_Pack-${VBOX_FULL_VERSION}.vbox-extpack"
+    # Try downloading with dash-separated version (Extension Pack format)
+    EXT_PACK_URL="https://download.virtualbox.org/virtualbox/${VBOX_VERSION}/Oracle_VM_VirtualBox_Extension_Pack-${VBOX_EXT_VERSION}.vbox-extpack"
     EXT_PACK_FILE="/tmp/Oracle_VM_VirtualBox_Extension_Pack.vbox-extpack"
     
     echo "Attempting to download Extension Pack from: $EXT_PACK_URL"
     if ! wget "$EXT_PACK_URL" -O "$EXT_PACK_FILE" 2>/dev/null; then
-        # Fallback: try with base version only
-        echo "Trying alternative URL with base version..."
-        EXT_PACK_URL="https://download.virtualbox.org/virtualbox/${VBOX_VERSION}/Oracle_VM_VirtualBox_Extension_Pack-${VBOX_VERSION}.vbox-extpack"
+        # Fallback: try with 'r' format (in case some versions use it)
+        echo "Trying alternative URL with 'r' format..."
+        EXT_PACK_URL="https://download.virtualbox.org/virtualbox/${VBOX_VERSION}/Oracle_VM_VirtualBox_Extension_Pack-${VBOX_FULL_VERSION}.vbox-extpack"
         if ! wget "$EXT_PACK_URL" -O "$EXT_PACK_FILE" 2>/dev/null; then
-            echo "Error: Could not download VirtualBox Extension Pack."
-            echo "Please download it manually from: https://www.virtualbox.org/wiki/Downloads"
-            return 1
+            # Final fallback: try with base version only
+            echo "Trying alternative URL with base version only..."
+            EXT_PACK_URL="https://download.virtualbox.org/virtualbox/${VBOX_VERSION}/Oracle_VM_VirtualBox_Extension_Pack-${VBOX_VERSION}.vbox-extpack"
+            if ! wget "$EXT_PACK_URL" -O "$EXT_PACK_FILE" 2>/dev/null; then
+                echo "Error: Could not download VirtualBox Extension Pack."
+                echo "Please download it manually from: https://www.virtualbox.org/wiki/Downloads"
+                return 1
+            fi
         fi
     fi
     
