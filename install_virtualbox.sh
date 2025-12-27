@@ -31,7 +31,7 @@ install_dependencies() {
                 sudo yum install -y wget kernel-devel kernel-headers gcc make dkms
             fi
             ;;
-        "arch" | "manjaro" | "endeavouros" | "garuda" )
+        "arch" | "manjaro" | "endeavouros" | "garuda" | "cachyos" )
             sudo pacman -Syu --noconfirm wget linux-headers gcc make dkms
             ;;
         "opensuse-tumbleweed" | "opensuse-leap" | "sles" )
@@ -73,7 +73,7 @@ install_virtualbox() {
             # Install VirtualBox
             sudo dnf install -y VirtualBox-7.0
             ;;
-        "arch" | "manjaro" | "endeavouros" | "garuda" )
+        "arch" | "manjaro" | "endeavouros" | "garuda" | "cachyos" )
             # Install VirtualBox and dependencies
             sudo pacman -S --noconfirm virtualbox virtualbox-host-modules-arch
             
