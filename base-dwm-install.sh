@@ -196,12 +196,12 @@ setup_display() {
     echo "1) Use a Display Manager (e.g., LightDM, GDM, SDDM) - Recommended"
     echo "2) Use startx (manual start from tty)"
     
-    # Check if stdin is a terminal (not piped)
-    if [ -t 0 ]; then
-        read -p "Enter your choice [1-2]: " choice
+    # Read from /dev/tty to allow input even when script is piped
+    if [ -c /dev/tty ]; then
+        read -p "Enter your choice [1-2]: " choice < /dev/tty 2>/dev/null || choice=1
     else
-        # Default to option 1 if script is piped
-        echo "No terminal input detected. Defaulting to option 1 (Display Manager)."
+        # Fallback if /dev/tty is not available
+        echo "No terminal available. Defaulting to option 1 (Display Manager)."
         choice=1
     fi
 
@@ -213,8 +213,8 @@ setup_display() {
                 echo "Found an existing display manager. DWM will be available as a session."
             else
                 echo "No display manager found."
-                if [ -t 0 ]; then
-                    read -p "Would you like to install one? (lightdm) [y/N]: " install_dm
+                if [ -c /dev/tty ]; then
+                    read -p "Would you like to install one? (lightdm) [y/N]: " install_dm < /dev/tty 2>/dev/null || install_dm="n"
                 else
                     echo "Skipping display manager installation (non-interactive mode)."
                     install_dm="n"
