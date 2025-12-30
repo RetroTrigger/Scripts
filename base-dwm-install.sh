@@ -39,7 +39,7 @@ install_packages() {
             build_essentials="base-devel"
             ;;
         "apt")
-            packages="nitrogen steam xserver-xorg xinit x11-xserver-utils git feh lxappearance polybar thunar thunar-volman thunar-archive-plugin thunar-media-tags-plugin gvfs gvfs-backends gvfs-fuse policykit-1-gnome picom flameshot imagemagick fonts-dejavu fonts-liberation fonts-noto fonts-droid-fallback fonts-nerd-font-mono"
+            packages="nitrogen steam xserver-xorg xinit x11-xserver-utils git curl wget feh lxappearance polybar thunar thunar-volman thunar-archive-plugin thunar-media-tags-plugin gvfs gvfs-backends gvfs-fuse policykit-1-gnome picom flameshot imagemagick fonts-dejavu fonts-liberation fonts-noto fonts-droid-fallback"
             build_essentials="build-essential"
             ;;
         "dnf")
@@ -111,7 +111,15 @@ install_third_party_packages() {
             ;;
         "apt")
             # Brave Browser
-            sudo curl -fsSLo /usr/share/keyrings/brave-browser-archive-keyring.gpg https://brave-browser-apt-release.s3.brave.com/brave-browser-archive-keyring.gpg
+            if command -v curl &> /dev/null; then
+                sudo curl -fsSLo /usr/share/keyrings/brave-browser-archive-keyring.gpg https://brave-browser-apt-release.s3.brave.com/brave-browser-archive-keyring.gpg
+            elif command -v wget &> /dev/null; then
+                sudo wget -qO /usr/share/keyrings/brave-browser-archive-keyring.gpg https://brave-browser-apt-release.s3.brave.com/brave-browser-archive-keyring.gpg
+            else
+                echo "Neither curl nor wget found. Skipping Brave browser installation."
+                install_meslo_nerd_font
+                return
+            fi
             echo "deb [signed-by=/usr/share/keyrings/brave-browser-archive-keyring.gpg] https://brave-browser-apt-release.s3.brave.com/ stable main" | sudo tee /etc/apt/sources.list.d/brave-browser-release.list
             eval $UPDATE_CMD
             eval $INSTALL_CMD brave-browser unzip
@@ -187,7 +195,15 @@ setup_display() {
     echo "Select how you want to start DWM:"
     echo "1) Use a Display Manager (e.g., LightDM, GDM, SDDM) - Recommended"
     echo "2) Use startx (manual start from tty)"
-    read -p "Enter your choice [1-2]: " choice
+    
+    # Check if stdin is a terminal (not piped)
+    if [ -t 0 ]; then
+        read -p "Enter your choice [1-2]: " choice
+    else
+        # Default to option 1 if script is piped
+        echo "No terminal input detected. Defaulting to option 1 (Display Manager)."
+        choice=1
+    fi
 
     case $choice in
         1) # Display Manager
@@ -197,9 +213,24 @@ setup_display() {
                 echo "Found an existing display manager. DWM will be available as a session."
             else
                 echo "No display manager found."
-                read -p "Would you like to install one? (lightdm) [y/N]: " install_dm
+                if [ -t 0 ]; then
+                    read -p "Would you like to install one? (lightdm) [y/N]: " install_dm
+                else
+                    echo "Skipping display manager installation (non-interactive mode)."
+                    install_dm="n"
+                fi
                 if [[ "$install_dm" =~ ^[yY](es)?$ ]]; then
-                    sudo pacman -S --noconfirm lightdm lightdm-gtk-greeter
+                    case "$PKG_MANAGER" in
+                        "pacman")
+                            sudo pacman -S --noconfirm lightdm lightdm-gtk-greeter
+                            ;;
+                        "apt")
+                            eval $INSTALL_CMD lightdm lightdm-gtk-greeter
+                            ;;
+                        "dnf")
+                            eval $INSTALL_CMD lightdm lightdm-gtk-greeter
+                            ;;
+                    esac
                     sudo systemctl enable lightdm.service
                     echo "LightDM has been installed and enabled. Please reboot after installation."
                 fi
