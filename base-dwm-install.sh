@@ -35,15 +35,15 @@ install_packages() {
 
     case "$PKG_MANAGER" in
         "pacman")
-            packages="nitrogen steam xorg-server xorg-xinit xorg-xrandr xorg-xsetroot git feh lxappearance polybar thunar thunar-volman thunar-archive-plugin thunar-media-tags-plugin gvfs gvfs-mtp gvfs-gphoto2 gvfs-afc gvfs-nfs gvfs-smb mate-polkit picom flameshot imagemagick ttf-dejavu ttf-liberation noto-fonts ttf-droid ttf-iosevka-nerd"
+            packages="nitrogen steam xorg-server xorg-xinit xorg-xrandr xorg-xsetroot git feh lxappearance polybar thunar thunar-volman thunar-archive-plugin thunar-media-tags-plugin gvfs gvfs-mtp gvfs-gphoto2 gvfs-afc gvfs-nfs gvfs-smb mate-polkit picom flameshot imagemagick ttf-dejavu ttf-liberation noto-fonts ttf-droid ttf-iosevka-nerd libx11 libxft libxinerama"
             build_essentials="base-devel"
             ;;
         "apt")
-            packages="nitrogen steam xserver-xorg xinit x11-xserver-utils git curl wget feh lxappearance polybar thunar thunar-volman thunar-archive-plugin thunar-media-tags-plugin gvfs gvfs-backends gvfs-fuse policykit-1-gnome picom flameshot imagemagick fonts-dejavu fonts-liberation fonts-noto fonts-droid-fallback"
+            packages="nitrogen steam xserver-xorg xinit x11-xserver-utils git curl wget feh lxappearance polybar thunar thunar-volman thunar-archive-plugin thunar-media-tags-plugin gvfs gvfs-backends gvfs-fuse policykit-1-gnome picom flameshot imagemagick fonts-dejavu fonts-liberation fonts-noto fonts-droid-fallback libx11-dev libxft-dev libxinerama-dev"
             build_essentials="build-essential"
             ;;
         "dnf")
-            packages="nitrogen steam xorg-x11-server-Xorg xorg-x11-xinit xorg-x11-xrandr git feh lxappearance polybar thunar thunar-volman thunar-archive-plugin thunar-media-tags-plugin gvfs gvfs-mtp gvfs-gphoto2 gvfs-afc gvfs-nfs gvfs-smb polkit-gnome picom flameshot ImageMagick dejavu-sans-fonts liberation-fonts google-noto-sans-fonts droid-sans-fonts"
+            packages="nitrogen steam xorg-x11-server-Xorg xorg-x11-xinit xorg-x11-xrandr git feh lxappearance polybar thunar thunar-volman thunar-archive-plugin thunar-media-tags-plugin gvfs gvfs-mtp gvfs-gphoto2 gvfs-afc gvfs-nfs gvfs-smb polkit-gnome picom flameshot ImageMagick dejavu-sans-fonts liberation-fonts google-noto-sans-fonts droid-sans-fonts libX11-devel libXft-devel libXinerama-devel"
             build_essentials="@development-tools"
             ;;
     esac
