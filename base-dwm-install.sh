@@ -192,16 +192,32 @@ create_dwm_desktop_entry() {
 }
 
 setup_display() {
-    echo "Select how you want to start DWM:"
-    echo "1) Use a Display Manager (e.g., LightDM, GDM, SDDM) - Recommended"
-    echo "2) Use startx (manual start from tty)"
-    
-    # Read from /dev/tty to allow input even when script is piped
+    # Send prompts to /dev/tty so they're visible even when script is piped
     if [ -c /dev/tty ]; then
-        read -p "Enter your choice [1-2]: " choice < /dev/tty 2>/dev/null || choice=1
+        {
+            echo "Select how you want to start DWM:"
+            echo "1) Use a Display Manager (e.g., LightDM, GDM, SDDM) - Recommended"
+            echo "2) Use startx (manual start from tty)"
+            printf "Enter your choice [1-2]: "
+        } > /dev/tty
+        read choice < /dev/tty
+        echo "" > /dev/tty  # New line after input
     else
         # Fallback if /dev/tty is not available
+        echo "Select how you want to start DWM:"
+        echo "1) Use a Display Manager (e.g., LightDM, GDM, SDDM) - Recommended"
+        echo "2) Use startx (manual start from tty)"
         echo "No terminal available. Defaulting to option 1 (Display Manager)."
+        choice=1
+    fi
+    
+    # Validate input
+    if [[ ! "$choice" =~ ^[12]$ ]]; then
+        if [ -c /dev/tty ]; then
+            echo "Invalid or empty choice. Defaulting to option 1 (Display Manager)." > /dev/tty
+        else
+            echo "Invalid or empty choice. Defaulting to option 1 (Display Manager)."
+        fi
         choice=1
     fi
 
@@ -214,7 +230,10 @@ setup_display() {
             else
                 echo "No display manager found."
                 if [ -c /dev/tty ]; then
-                    read -p "Would you like to install one? (lightdm) [y/N]: " install_dm < /dev/tty 2>/dev/null || install_dm="n"
+                    printf "Would you like to install one? (lightdm) [y/N]: " > /dev/tty
+                    read install_dm < /dev/tty
+                    # Default to 'n' if empty
+                    install_dm="${install_dm:-n}"
                 else
                     echo "Skipping display manager installation (non-interactive mode)."
                     install_dm="n"
