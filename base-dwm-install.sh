@@ -35,7 +35,7 @@ install_packages() {
 
     case "$PKG_MANAGER" in
         "pacman")
-            packages="nitrogen steam xorg-server xorg-xinit xorg-xrandr xorg-xsetroot git feh lxappearance polybar thunar thunar-volman thunar-archive-plugin thunar-media-tags-plugin gvfs gvfs-mtp gvfs-gphoto2 gvfs-afc gvfs-nfs gvfs-smb mate-polkit picom flameshot imagemagick ttf-dejavu ttf-liberation noto-fonts ttf-droid ttf-iosevka-nerd libx11 libxft libxinerama"
+            packages="nitrogen steam xorg-server xorg-xinit xorg-xrandr xorg-xsetroot git feh lxappearance polybar thunar thunar-volman thunar-archive-plugin thunar-media-tags-plugin gvfs gvfs-mtp gvfs-gphoto2 gvfs-afc gvfs-nfs gvfs-smb polkit-gnome picom flameshot imagemagick ttf-dejavu ttf-liberation noto-fonts ttf-droid ttf-iosevka-nerd libx11 libxft libxinerama"
             build_essentials="base-devel"
             ;;
         "apt")
@@ -54,50 +54,6 @@ install_packages() {
     install_third_party_packages
 }
 
-install_meslo_nerd_font() {
-    echo "Installing Meslo Nerd Font..."
-    local font_dir="$HOME/.local/share/fonts/Meslo"
-    local font_url="https://github.com/ryanoasis/nerd-fonts/releases/latest/download/Meslo.zip"
-    local temp_zip="/tmp/meslo_nerd_font.zip"
-
-    # Create font directory if it doesn't exist
-    mkdir -p "$font_dir"
-
-    # Install curl or wget if not available
-    if ! command -v curl &> /dev/null && ! command -v wget &> /dev/null; then
-        echo "Neither curl nor wget found. Installing curl..."
-        if ! eval $INSTALL_CMD curl; then
-            echo "Failed to install curl. Please install curl or wget manually and try again."
-            return 1
-        fi
-    fi
-
-    # Download the font
-    if command -v curl &> /dev/null; then
-        curl -L "$font_url" -o "$temp_zip"
-    else
-        wget -O "$temp_zip" "$font_url"
-    fi
-
-    # Install unzip if not available
-    if ! command -v unzip &> /dev/null; then
-        echo "unzip not found. Installing unzip..."
-        if ! eval $INSTALL_CMD unzip; then
-            echo "Failed to install unzip. Please install unzip manually and try again."
-            return 1
-        fi
-    fi
-
-    # Extract and install the font
-    unzip -o "$temp_zip" -d "$font_dir"
-    rm "$temp_zip"
-    # Update font cache
-    if command -v fc-cache &> /dev/null; then
-        fc-cache -f -v "$font_dir"
-    fi
-    echo "Meslo Nerd Font installed successfully!"
-}
-
 install_third_party_packages() {
     echo "Installing third-party packages..."
     case "$PKG_MANAGER" in
@@ -107,7 +63,7 @@ install_third_party_packages() {
                 git clone https://aur.archlinux.org/yay-bin.git /tmp/yay-bin
                 (cd /tmp/yay-bin && makepkg -si --noconfirm)
             fi
-            yay -S --noconfirm brave-bin ttf-meslo-nerd-font-powerlevel10k
+            yay -S --noconfirm brave-bin 
             ;;
         "apt")
             # Brave Browser
@@ -117,22 +73,17 @@ install_third_party_packages() {
                 sudo wget -qO /usr/share/keyrings/brave-browser-archive-keyring.gpg https://brave-browser-apt-release.s3.brave.com/brave-browser-archive-keyring.gpg
             else
                 echo "Neither curl nor wget found. Skipping Brave browser installation."
-                install_meslo_nerd_font
                 return
             fi
             echo "deb [signed-by=/usr/share/keyrings/brave-browser-archive-keyring.gpg] https://brave-browser-apt-release.s3.brave.com/ stable main" | sudo tee /etc/apt/sources.list.d/brave-browser-release.list
             eval $UPDATE_CMD
             eval $INSTALL_CMD brave-browser unzip
-            # Install Meslo Nerd Font
-            install_meslo_nerd_font
             ;;
         "dnf")
             # Brave Browser
             sudo dnf config-manager --add-repo https://brave-browser-rpm-release.s3.brave.com/brave-browser.repo
             sudo rpm --import https://brave-browser-rpm-release.s3.brave.com/brave-core.asc
             eval $INSTALL_CMD brave-browser unzip
-            # Install Meslo Nerd Font
-            install_meslo_nerd_font
             ;;
     esac
 }
@@ -161,7 +112,21 @@ setup_xinitrc() {
     # Create .xinitrc if it doesn't exist
     if [ ! -f ~/.xinitrc ]; then
         echo "Creating ~/.xinitrc..."
-        echo "#!/bin/sh\n\n# Start DWM with mate-polkit\nexec mate-polkit &\nexec dwm" > ~/.xinitrc
+        cat > ~/.xinitrc <<'EOF'
+#!/bin/sh
+
+if command -v polkit-gnome-authentication-agent-1 >/dev/null 2>&1; then
+  polkit-gnome-authentication-agent-1 &
+elif [ -x /usr/lib/polkit-gnome/polkit-gnome-authentication-agent-1 ]; then
+  /usr/lib/polkit-gnome/polkit-gnome-authentication-agent-1 &
+elif [ -x /usr/libexec/polkit-gnome-authentication-agent-1 ]; then
+  /usr/libexec/polkit-gnome-authentication-agent-1 &
+elif [ -x /usr/lib/policykit-1-gnome/polkit-gnome-authentication-agent-1 ]; then
+  /usr/lib/policykit-1-gnome/polkit-gnome-authentication-agent-1 &
+fi
+
+exec dwm
+EOF
         chmod +x ~/.xinitrc
     else
         echo "~/.xinitrc already exists. Please ensure it is configured to start dwm."
