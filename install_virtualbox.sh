@@ -17,6 +17,79 @@ detect_distro() {
     fi
 }
 
+# Function to get the latest VirtualBox version from download server
+get_latest_vbox_version() {
+    local temp_file="/tmp/vbox_versions.html"
+    echo "Fetching latest VirtualBox version..." >&2
+
+    # Fetch the directory listing
+    if command -v wget &> /dev/null; then
+        wget -q --header="User-Agent: $USER_AGENT" -O "$temp_file" "$VBOX_BASE_URL/" 2>/dev/null
+    elif command -v curl &> /dev/null; then
+        curl -sL -H "User-Agent: $USER_AGENT" "$VBOX_BASE_URL/" -o "$temp_file" 2>/dev/null
+    fi
+
+    if [ ! -s "$temp_file" ]; then
+        echo "Error: Could not fetch VirtualBox version list" >&2
+        rm -f "$temp_file"
+        return 1
+    fi
+
+    # Extract version numbers and get the latest (highest) stable version
+    # Versions look like "7.1.4/" - we want the major.minor (7.1) for package names
+    local latest=$(grep -oE '[0-9]+\.[0-9]+\.[0-9]+/' "$temp_file" | tr -d '/' | sort -V | tail -1)
+    rm -f "$temp_file"
+
+    if [ -z "$latest" ]; then
+        echo "Error: Could not determine latest VirtualBox version" >&2
+        return 1
+    fi
+
+    # Return major.minor for package installation (e.g., "7.1" from "7.1.4")
+    echo "$latest" | cut -d. -f1,2
+}
+
+# Function to get Ubuntu/Debian codename from os-release or map from derivative
+get_debian_codename() {
+    if [ -f /etc/os-release ]; then
+        . /etc/os-release
+        # Try UBUNTU_CODENAME first (works for Ubuntu and many derivatives)
+        if [ -n "$UBUNTU_CODENAME" ]; then
+            echo "$UBUNTU_CODENAME"
+            return
+        fi
+        # Try VERSION_CODENAME (Debian, some derivatives)
+        if [ -n "$VERSION_CODENAME" ]; then
+            echo "$VERSION_CODENAME"
+            return
+        fi
+        # Fallback: map ID_LIKE or known derivatives to Ubuntu codename
+        case "$ID" in
+            pop|elementary|zorin|linuxmint)
+                # These are typically based on Ubuntu LTS - try to extract from VERSION_ID
+                case "$VERSION_ID" in
+                    22.*|21.*) echo "jammy" ;;   # Ubuntu 22.04 based
+                    24.*|23.*) echo "noble" ;;   # Ubuntu 24.04 based
+                    20.*|19.*) echo "focal" ;;   # Ubuntu 20.04 based
+                    *) echo "jammy" ;;           # Default to jammy as safe fallback
+                esac
+                ;;
+            debian|kali|mx)
+                # Debian-based, use VERSION_ID to map
+                case "$VERSION_ID" in
+                    12|2023.*|2024.*) echo "bookworm" ;;
+                    11|2021.*|2022.*) echo "bullseye" ;;
+                    *) echo "bookworm" ;;
+                esac
+                ;;
+            *)
+                # Last resort fallback
+                echo "jammy"
+                ;;
+        esac
+    fi
+}
+
 # Function to get VirtualBox version
 get_vbox_version() {
     if ! command -v VBoxManage &> /dev/null; then
@@ -35,12 +108,19 @@ url_decode() {
 # Function to download file
 download_file() {
     local url=$1 output=$2
-    if wget --header="Accept: */*" --header="User-Agent: $USER_AGENT" "$url" -O "$output" 2>&1 | grep -q "200 OK\|saved"; then
-        return 0
+    # Try wget first, check exit code directly
+    if command -v wget &> /dev/null; then
+        if wget -q --header="Accept: */*" --header="User-Agent: $USER_AGENT" "$url" -O "$output" 2>/dev/null; then
+            [ -s "$output" ] && return 0  # Verify file is not empty
+        fi
     fi
+    # Fallback to curl
     if command -v curl &> /dev/null; then
-        curl -L -f -o "$output" -H "Accept: */*" -H "User-Agent: $USER_AGENT" "$url" 2>/dev/null && return 0
+        if curl -sL -f -o "$output" -H "Accept: */*" -H "User-Agent: $USER_AGENT" "$url" 2>/dev/null; then
+            [ -s "$output" ] && return 0  # Verify file is not empty
+        fi
     fi
+    rm -f "$output" 2>/dev/null
     return 1
 }
 
@@ -82,21 +162,21 @@ install_dependencies() {
     local distro=$1
     echo "Installing dependencies for $distro..."
     case $distro in
-        "ubuntu"|"debian"|"pop"|"linuxmint"|"elementary"|"kali"|"zorin"|"mx"|"peppermint"|"kde"|"xubuntu"|"lubuntu"|"kubuntu"|"ubuntu"*)
+        ubuntu|debian|pop|linuxmint|elementary|kali|zorin|mx|peppermint|xubuntu|lubuntu|kubuntu)
             sudo apt-get update && sudo apt-get install -y wget curl linux-headers-$(uname -r) build-essential dkms
             ;;
-        "fedora"|"rhel"|"centos"|"almalinux"|"rocky"|"ol"|"amzn")
+        fedora|rhel|centos|almalinux|rocky|ol|amzn)
             if command -v dnf &> /dev/null; then
-                sudo dnf install -y wget kernel-devel kernel-headers gcc make dkms
+                sudo dnf install -y dnf-plugins-core wget curl kernel-devel kernel-headers gcc make dkms
             else
-                sudo yum install -y wget kernel-devel kernel-headers gcc make dkms
+                sudo yum install -y wget curl kernel-devel kernel-headers gcc make dkms
             fi
             ;;
-        "arch"|"manjaro"|"endeavouros"|"garuda"|"cachyos")
-            sudo pacman -Syu --noconfirm wget linux-headers gcc make dkms
+        arch|manjaro|endeavouros|garuda|cachyos)
+            sudo pacman -Syu --noconfirm wget curl base-devel dkms
             ;;
-        "opensuse-tumbleweed"|"opensuse-leap"|"sles")
-            sudo zypper refresh && sudo zypper install -y wget kernel-devel gcc make dkms
+        opensuse-tumbleweed|opensuse-leap|sles)
+            sudo zypper refresh && sudo zypper install -y wget curl kernel-devel gcc make dkms
             ;;
         *)
             echo "Unsupported distribution: $distro" >&2
@@ -112,41 +192,94 @@ add_user_to_vboxusers() {
         echo "Warning: vboxusers group not found. Creating vboxusers group..."
         sudo groupadd vboxusers 2>/dev/null || echo "Note: Group creation may have failed or group already exists."
     fi
-    
-    # Check if user is already in the group
-    if groups | grep -q vboxusers; then
+
+    # Check if user is already in the group using getent (checks /etc/group, not session)
+    if getent group vboxusers | grep -qw "$USER"; then
         echo "User is already in vboxusers group."
         return 0
     fi
-    
+
     echo "Adding user to vboxusers group..."
-    sudo usermod -aG vboxusers $USER
+    sudo usermod -aG vboxusers "$USER"
     echo "User added to vboxusers group. You may need to log out and back in for this to take effect."
+}
+
+# Function to detect running kernel type for Arch-based systems
+get_arch_kernel_module_package() {
+    local kernel_version=$(uname -r)
+    case "$kernel_version" in
+        *-lts*)     echo "virtualbox-host-modules-lts" ;;
+        *-zen*)     echo "virtualbox-host-modules-zen" ;;
+        *-hardened*) echo "virtualbox-host-modules-hardened" ;;
+        *)          echo "virtualbox-host-modules-arch" ;;
+    esac
+}
+
+# Function to get openSUSE repo path
+get_opensuse_repo_path() {
+    . /etc/os-release
+    case "$ID" in
+        opensuse-tumbleweed)
+            echo "opensuse/tumbleweed"
+            ;;
+        opensuse-leap|sles)
+            # Use full version for Leap (e.g., 15.5)
+            echo "opensuse/${VERSION_ID}"
+            ;;
+        *)
+            echo "opensuse/tumbleweed"  # fallback
+            ;;
+    esac
 }
 
 # Function to install VirtualBox
 install_virtualbox() {
     local distro=$1
+
+    # Get latest version (Arch uses its own repos, so skip for Arch-based)
+    local vbox_version=""
+    if [[ ! "$distro" =~ ^(arch|manjaro|endeavouros|garuda|cachyos)$ ]]; then
+        vbox_version=$(get_latest_vbox_version)
+        if [ -z "$vbox_version" ]; then
+            echo "Error: Could not determine VirtualBox version to install" >&2
+            exit 1
+        fi
+        echo "Latest VirtualBox version: $vbox_version"
+    fi
+
     echo "Installing VirtualBox for $distro..."
     case $distro in
-        "ubuntu"|"debian"|"pop"|"linuxmint"|"elementary"|"kali"|"zorin"|"mx"|"peppermint"|"kde"|"xubuntu"|"lubuntu"|"kubuntu"|"ubuntu"*)
-            echo "deb [arch=amd64 signed-by=/usr/share/keyrings/oracle-virtualbox-2016.gpg] https://download.virtualbox.org/virtualbox/debian $(lsb_release -cs) contrib" | sudo tee /etc/apt/sources.list.d/virtualbox.list > /dev/null
-            wget -O- https://www.virtualbox.org/download/oracle_vbox_2016.asc | sudo gpg --dearmor --yes --output /usr/share/keyrings/oracle-virtualbox-2016.gpg
-            sudo apt-get update && sudo apt-get install -y virtualbox-7.0
+        ubuntu|debian|pop|linuxmint|elementary|kali|zorin|mx|peppermint|xubuntu|lubuntu|kubuntu)
+            local codename=$(get_debian_codename)
+            echo "Using codename: $codename"
+            # Import GPG key FIRST, before adding the repository
+            wget -qO- https://www.virtualbox.org/download/oracle_vbox_2016.asc | sudo gpg --dearmor --yes --output /usr/share/keyrings/oracle-virtualbox-2016.gpg
+            # Now add the repository
+            echo "deb [arch=amd64 signed-by=/usr/share/keyrings/oracle-virtualbox-2016.gpg] https://download.virtualbox.org/virtualbox/debian $codename contrib" | sudo tee /etc/apt/sources.list.d/virtualbox.list > /dev/null
+            sudo apt-get update && sudo apt-get install -y "virtualbox-${vbox_version}"
             ;;
-        "fedora"|"rhel"|"centos"|"almalinux"|"rocky"|"ol"|"amzn")
+        fedora|rhel|centos|almalinux|rocky|ol|amzn)
             sudo dnf install -y @development-tools kernel-headers kernel-devel dkms qt5-qtx11extras libxkbcommon
             sudo dnf config-manager --add-repo https://download.virtualbox.org/virtualbox/rpm/el/virtualbox.repo
-            sudo dnf install -y VirtualBox-7.0
+            sudo dnf install -y "VirtualBox-${vbox_version}"
             ;;
-        "arch"|"manjaro"|"endeavouros"|"garuda"|"cachyos")
-            sudo pacman -S --noconfirm virtualbox virtualbox-host-modules-arch
-            sudo modprobe vboxdrv vboxnetadp vboxnetflt
+        arch|manjaro|endeavouros|garuda|cachyos)
+            # Arch repos always have the latest version
+            local kernel_module=$(get_arch_kernel_module_package)
+            echo "Detected kernel module package: $kernel_module"
+            sudo pacman -S --noconfirm virtualbox "$kernel_module"
+            sudo modprobe vboxdrv vboxnetadp vboxnetflt 2>/dev/null || echo "Note: Kernel modules will load on next reboot"
             ;;
-        "opensuse-tumbleweed"|"opensuse-leap"|"sles")
-            sudo zypper addrepo https://download.virtualbox.org/virtualbox/rpm/opensuse/$(grep -oP 'VERSION_ID="\K[0-9.]+' /etc/os-release | cut -d. -f1) virtualbox
-            sudo rpm --import https://www.virtualbox.org/download/oracle_vbox.asc
-            sudo zypper refresh && sudo zypper install -y virtualbox-7.0
+        opensuse-tumbleweed|opensuse-leap|sles)
+            local repo_path=$(get_opensuse_repo_path)
+            echo "Using openSUSE repo path: $repo_path"
+            # Import key first
+            sudo rpm --import https://www.virtualbox.org/download/oracle_vbox_2016.asc
+            # Check if repo already exists
+            if ! sudo zypper repos | grep -q virtualbox; then
+                sudo zypper addrepo "https://download.virtualbox.org/virtualbox/rpm/${repo_path}" virtualbox
+            fi
+            sudo zypper refresh && sudo zypper install -y "VirtualBox-${vbox_version}"
             ;;
     esac
 }
@@ -161,7 +294,7 @@ install_extension_pack() {
     local temp_list="/tmp/vbox_dir_list.txt"
     
     echo "Discovering available Extension Pack..."
-    local found_pack=$(discover_file 'Oracle[%_]VirtualBox[%_]Extension[%_]Pack-[0-9.-]*\.vbox-extpack' "$temp_list")
+    local found_pack=$(discover_file 'Oracle[_%][Vv]irtual[Bb]ox[_%][Ee]xtension[_%][Pp]ack-[0-9.-]*\.vbox-extpack' "$temp_list")
     
     if [ -n "$found_pack" ]; then
         local url="${version_dir}${found_pack}"
@@ -198,7 +331,7 @@ download_guest_additions() {
     local temp_list="/tmp/vbox_dir_list_ga.txt"
     
     echo "Discovering available Guest Additions ISO..."
-    local found_iso=$(discover_file 'VBoxGuestAdditions[%_][0-9.]+\.iso' "$temp_list")
+    local found_iso=$(discover_file 'VBoxGuestAdditions[_][0-9.]+\.iso' "$temp_list")
     
     if [ -n "$found_iso" ]; then
         local url="${version_dir}${found_iso}"
