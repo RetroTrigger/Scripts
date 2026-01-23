@@ -9,20 +9,48 @@ detect_package_manager() {
     if command -v pacman &> /dev/null; then
         PKG_MANAGER="pacman"
         UPDATE_CMD="sudo pacman -Syyu --noconfirm"
-        INSTALL_CMD="sudo pacman -S --noconfirm"
+        INSTALL_CMD="sudo pacman -S --noconfirm --needed"
     elif command -v apt-get &> /dev/null; then
         PKG_MANAGER="apt"
         UPDATE_CMD="sudo apt-get update"
         INSTALL_CMD="sudo apt-get install -y"
     elif command -v dnf &> /dev/null; then
         PKG_MANAGER="dnf"
-        UPDATE_CMD="sudo dnf check-update"
+        UPDATE_CMD="sudo dnf makecache"
         INSTALL_CMD="sudo dnf install -y"
     else
         echo "Unsupported package manager. This script supports pacman, apt, and dnf." >&2
         exit 1
     fi
     echo "Package manager detected: $PKG_MANAGER"
+}
+
+# Check if a package is installed
+is_package_installed() {
+    local pkg="$1"
+    case "$PKG_MANAGER" in
+        "pacman")
+            pacman -Qi "$pkg" &> /dev/null
+            ;;
+        "apt")
+            dpkg-query -W -f='${Status}' "$pkg" 2>/dev/null | grep -q "install ok installed"
+            ;;
+        "dnf")
+            rpm -q "$pkg" &> /dev/null
+            ;;
+    esac
+}
+
+# Filter out already installed packages
+get_missing_packages() {
+    local packages="$1"
+    local missing=""
+    for pkg in $packages; do
+        if ! is_package_installed "$pkg"; then
+            missing="$missing $pkg"
+        fi
+    done
+    echo "$missing"
 }
 
 install_packages() {
@@ -35,57 +63,34 @@ install_packages() {
 
     case "$PKG_MANAGER" in
         "pacman")
-            packages="nitrogen steam xorg-server xorg-xinit xorg-xrandr xorg-xsetroot git feh lxappearance polybar thunar thunar-volman thunar-archive-plugin thunar-media-tags-plugin gvfs gvfs-mtp gvfs-gphoto2 gvfs-afc gvfs-nfs gvfs-smb polkit-gnome picom flameshot imagemagick ttf-dejavu ttf-liberation noto-fonts ttf-droid ttf-iosevka-nerd libx11 libxft libxinerama"
+            packages="nitrogen steam xorg-server xorg-xinit xorg-xrandr xorg-xsetroot git feh lxappearance arandr thunar thunar-volman thunar-archive-plugin thunar-media-tags-plugin gvfs gvfs-mtp gvfs-gphoto2 gvfs-afc gvfs-nfs gvfs-smb polkit-gnome picom flameshot imagemagick ttf-dejavu ttf-liberation noto-fonts ttf-droid ttf-iosevka-nerd libx11 libxft libxinerama"
             build_essentials="base-devel"
             ;;
         "apt")
-            packages="nitrogen steam xserver-xorg xinit x11-xserver-utils git curl wget feh lxappearance polybar thunar thunar-volman thunar-archive-plugin thunar-media-tags-plugin gvfs gvfs-backends gvfs-fuse policykit-1-gnome picom flameshot imagemagick fonts-dejavu fonts-liberation fonts-noto fonts-droid-fallback libx11-dev libxft-dev libxinerama-dev"
+            packages="nitrogen steam xserver-xorg xinit x11-xserver-utils git curl wget feh lxappearance arandr thunar thunar-volman thunar-archive-plugin thunar-media-tags-plugin gvfs gvfs-backends gvfs-fuse policykit-1-gnome picom flameshot imagemagick fonts-dejavu fonts-liberation fonts-noto fonts-droid-fallback libx11-dev libxft-dev libxinerama-dev"
             build_essentials="build-essential"
             ;;
         "dnf")
-            packages="nitrogen steam xorg-x11-server-Xorg xorg-x11-xinit xorg-x11-xrandr git feh lxappearance polybar thunar thunar-volman thunar-archive-plugin thunar-media-tags-plugin gvfs gvfs-mtp gvfs-gphoto2 gvfs-afc gvfs-nfs gvfs-smb polkit-gnome picom flameshot ImageMagick dejavu-sans-fonts liberation-fonts google-noto-sans-fonts droid-sans-fonts libX11-devel libXft-devel libXinerama-devel"
+            packages="nitrogen steam xorg-x11-server-Xorg xorg-x11-xinit xorg-x11-server-utils xorg-x11-xrandr git feh lxappearance arandr thunar thunar-volman thunar-archive-plugin thunar-media-tags-plugin gvfs gvfs-mtp gvfs-gphoto2 gvfs-afc gvfs-nfs gvfs-smb polkit-gnome picom flameshot ImageMagick dejavu-sans-fonts liberation-fonts google-noto-sans-fonts droid-sans-fonts libX11-devel libXft-devel libXinerama-devel"
             build_essentials="@development-tools"
             ;;
     esac
 
-    eval $INSTALL_CMD $build_essentials $packages
-
-    # Install third-party packages
-    install_third_party_packages
-}
-
-install_third_party_packages() {
-    echo "Installing third-party packages..."
-    case "$PKG_MANAGER" in
-        "pacman")
-            if ! command -v yay &> /dev/null; then
-                echo "Installing yay..."
-                git clone https://aur.archlinux.org/yay-bin.git /tmp/yay-bin
-                (cd /tmp/yay-bin && makepkg -si --noconfirm)
-            fi
-            yay -S --noconfirm brave-bin 
-            ;;
-        "apt")
-            # Brave Browser
-            if command -v curl &> /dev/null; then
-                sudo curl -fsSLo /usr/share/keyrings/brave-browser-archive-keyring.gpg https://brave-browser-apt-release.s3.brave.com/brave-browser-archive-keyring.gpg
-            elif command -v wget &> /dev/null; then
-                sudo wget -qO /usr/share/keyrings/brave-browser-archive-keyring.gpg https://brave-browser-apt-release.s3.brave.com/brave-browser-archive-keyring.gpg
-            else
-                echo "Neither curl nor wget found. Skipping Brave browser installation."
-                return
-            fi
-            echo "deb [signed-by=/usr/share/keyrings/brave-browser-archive-keyring.gpg] https://brave-browser-apt-release.s3.brave.com/ stable main" | sudo tee /etc/apt/sources.list.d/brave-browser-release.list
-            eval $UPDATE_CMD
-            eval $INSTALL_CMD brave-browser unzip
-            ;;
-        "dnf")
-            # Brave Browser
-            sudo dnf config-manager --add-repo https://brave-browser-rpm-release.s3.brave.com/brave-browser.repo
-            sudo rpm --import https://brave-browser-rpm-release.s3.brave.com/brave-core.asc
-            eval $INSTALL_CMD brave-browser unzip
-            ;;
-    esac
+    # Filter out already installed packages (pacman --needed handles this natively)
+    if [ "$PKG_MANAGER" != "pacman" ]; then
+        local all_packages="$build_essentials $packages"
+        local missing_packages=$(get_missing_packages "$all_packages")
+        
+        if [ -z "$missing_packages" ]; then
+            echo "All packages are already installed."
+        else
+            echo "Installing missing packages:$missing_packages"
+            eval $INSTALL_CMD $missing_packages
+        fi
+    else
+        # Pacman's --needed flag handles this natively
+        eval $INSTALL_CMD $build_essentials $packages
+    fi
 }
 
 clone_repositories() {
@@ -204,17 +209,23 @@ setup_display() {
                     install_dm="n"
                 fi
                 if [[ "$install_dm" =~ ^[yY](es)?$ ]]; then
-                    case "$PKG_MANAGER" in
-                        "pacman")
-                            sudo pacman -S --noconfirm lightdm lightdm-gtk-greeter
-                            ;;
-                        "apt")
-                            eval $INSTALL_CMD lightdm lightdm-gtk-greeter
-                            ;;
-                        "dnf")
-                            eval $INSTALL_CMD lightdm lightdm-gtk-greeter
-                            ;;
-                    esac
+                    local dm_packages="lightdm lightdm-gtk-greeter"
+                    local missing_dm=$(get_missing_packages "$dm_packages")
+                    if [ -n "$missing_dm" ]; then
+                        case "$PKG_MANAGER" in
+                            "pacman")
+                                sudo pacman -S --noconfirm --needed $dm_packages
+                                ;;
+                            "apt")
+                                eval $INSTALL_CMD $missing_dm
+                                ;;
+                            "dnf")
+                                eval $INSTALL_CMD $missing_dm
+                                ;;
+                        esac
+                    else
+                        echo "LightDM is already installed."
+                    fi
                     sudo systemctl enable lightdm.service
                     echo "LightDM has been installed and enabled. Please reboot after installation."
                 fi
@@ -226,10 +237,6 @@ setup_display() {
             setup_autostart
             echo -e "\nInstallation complete!"
             echo -e "\nTo start DWM, log in to tty1 and X will start automatically, or type 'startx'."
-            ;;
-        *)
-            echo "Invalid choice. Exiting."
-            exit 1
             ;;
     esac
 }
