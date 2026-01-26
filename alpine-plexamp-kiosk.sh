@@ -142,7 +142,9 @@ install_packages() {
         mesa-egl \
         openbox \
         xdotool \
-        xset
+        xset \
+        xsetroot \
+        xmessage
 
     # Flatpak for running Plexamp
     apk add --no-cache \
@@ -246,16 +248,36 @@ setup_autologin() {
 setup_flatpak() {
     log_info "Setting up Flatpak and Plexamp..."
 
+    # Create flatpak directories with proper permissions first
+    mkdir -p /var/lib/flatpak
+    mkdir -p "${KIOSK_HOME}/.local/share/flatpak"
+    chown -R "${KIOSK_USER}:${KIOSK_USER}" "${KIOSK_HOME}/.local"
+
     # Add Flathub repository (system-wide)
     flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
 
     log_info "Installing Plexamp from Flathub (this may take a while)..."
-    flatpak install -y --noninteractive flathub com.plexamp.Plexamp
+    
+    # Try to install, with retry on failure
+    if ! flatpak install -y --noninteractive flathub com.plexamp.Plexamp; then
+        log_warn "First install attempt failed, cleaning up and retrying..."
+        flatpak repair --system 2>/dev/null || true
+        flatpak uninstall -y --noninteractive com.plexamp.Plexamp 2>/dev/null || true
+        
+        if ! flatpak install -y --noninteractive flathub com.plexamp.Plexamp; then
+            log_error "Failed to install Plexamp. Please check disk space and try again."
+            log_error "You can manually install later with: flatpak install flathub com.plexamp.Plexamp"
+            return 1
+        fi
+    fi
 
-    # Allow kiosk user to run flatpak apps
-    chown -R "${KIOSK_USER}:${KIOSK_USER}" "${KIOSK_HOME}/.local"
-
-    log_success "Plexamp installed via Flatpak"
+    # Verify installation
+    if flatpak list | grep -q "com.plexamp.Plexamp"; then
+        log_success "Plexamp installed via Flatpak"
+    else
+        log_error "Plexamp installation verification failed"
+        return 1
+    fi
 }
 
 # ============================================================================
@@ -304,16 +326,48 @@ EOF
 # Openbox autostart - launches Plexamp in kiosk mode
 #
 
+# Log file for debugging
+LOG="$HOME/.plexamp-kiosk.log"
+echo "$(date) - Openbox autostart beginning" > "$LOG"
+
+# Set background color to dark gray (so it's not pure black)
+xsetroot -solid "#1a1a1a" 2>/dev/null || true
+
 # Wait for window manager to be ready
 sleep 2
 
-# Launch Plexamp via Flatpak
-flatpak run com.plexamp.Plexamp &
+# Check if Plexamp is installed
+if ! flatpak list 2>/dev/null | grep -q "com.plexamp.Plexamp"; then
+    echo "$(date) - ERROR: Plexamp not installed!" >> "$LOG"
+    # Show error message on screen using xmessage if available
+    if command -v xmessage >/dev/null 2>&1; then
+        xmessage -center "Plexamp not installed. Run: flatpak install flathub com.plexamp.Plexamp" &
+    fi
+    exit 1
+fi
 
-# Wait for Plexamp window to appear, then make it fullscreen
-sleep 5
-xdotool search --name "Plexamp" windowactivate --sync
-xdotool key F11 2>/dev/null || true
+echo "$(date) - Launching Plexamp..." >> "$LOG"
+
+# Launch Plexamp via Flatpak
+flatpak run com.plexamp.Plexamp >> "$LOG" 2>&1 &
+PLEXAMP_PID=$!
+
+echo "$(date) - Plexamp started with PID $PLEXAMP_PID" >> "$LOG"
+
+# Wait for Plexamp window to appear (up to 30 seconds)
+for i in $(seq 1 30); do
+    if xdotool search --name "Plexamp" >/dev/null 2>&1; then
+        echo "$(date) - Plexamp window found after ${i}s" >> "$LOG"
+        sleep 1
+        xdotool search --name "Plexamp" windowactivate 2>/dev/null || true
+        # Try to maximize/fullscreen
+        xdotool key F11 2>/dev/null || true
+        break
+    fi
+    sleep 1
+done
+
+echo "$(date) - Autostart complete" >> "$LOG"
 EOF
     chmod +x "${KIOSK_HOME}/.config/openbox/autostart"
 
