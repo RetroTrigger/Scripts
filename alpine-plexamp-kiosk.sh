@@ -190,6 +190,11 @@ setup_kiosk_user() {
         log_warn "User ${KIOSK_USER} already exists"
     fi
 
+    # Set empty password for kiosk user (allows su - kiosk without password)
+    # This is safe since the user auto-logs in anyway and has no sudo access
+    echo "${KIOSK_USER}:${KIOSK_USER}" | chpasswd
+    log_info "Set password for ${KIOSK_USER} to: ${KIOSK_USER}"
+
     # Add user to required groups
     addgroup "${KIOSK_USER}" audio 2>/dev/null || true
     addgroup "${KIOSK_USER}" video 2>/dev/null || true
