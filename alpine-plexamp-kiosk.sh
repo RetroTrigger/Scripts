@@ -138,7 +138,9 @@ install_packages() {
         xwayland \
         mesa-dri-gallium \
         mesa-egl \
-        libinput
+        libinput \
+        seatd \
+        seatd-openrc
 
     # Flatpak for running Plexamp
     apk add --no-cache \
@@ -193,6 +195,7 @@ setup_kiosk_user() {
     addgroup "${KIOSK_USER}" video 2>/dev/null || true
     addgroup "${KIOSK_USER}" input 2>/dev/null || true
     addgroup "${KIOSK_USER}" plugdev 2>/dev/null || true
+    addgroup "${KIOSK_USER}" seat 2>/dev/null || true
 
     # Create config directories
     mkdir -p "${KIOSK_HOME}/.config"
@@ -305,8 +308,12 @@ if [ "$(tty)" = "/dev/tty1" ]; then
     # For Electron apps (Plexamp) - may need XWayland
     export ELECTRON_OZONE_PLATFORM_HINT=auto
 
-    # Start Cage with Plexamp
-    exec cage -- "$HOME/.config/cage-start.sh"
+    # Wait for seatd to be ready
+    sleep 1
+
+    # Start Cage with Plexamp using seatd-launch for proper seat access
+    # seatd-launch handles the seat/DRM access that Cage needs
+    exec seatd-launch -- cage -- "$HOME/.config/cage-start.sh"
 fi
 EOF
 
@@ -374,6 +381,10 @@ enable_services() {
     # Enable D-Bus
     rc-update add dbus default
     rc-service dbus start 2>/dev/null || true
+
+    # Enable seatd (required for Cage to access DRM/GPU)
+    rc-update add seatd default
+    rc-service seatd start 2>/dev/null || true
 
     # Enable elogind (session management)
     rc-update add elogind default
