@@ -124,12 +124,12 @@ install_packages() {
     log_info "Installing required packages..."
 
     # Core system packages
+    # Note: Using seatd instead of elogind for seat management
+    # Do NOT use both - they conflict
     apk add --no-cache \
         dbus \
         dbus-x11 \
-        polkit \
-        elogind \
-        elogind-openrc
+        polkit
 
     # Wayland and Cage kiosk compositor
     apk add --no-cache \
@@ -290,7 +290,7 @@ EOF
 
 # Only start on tty1
 if [ "$(tty)" = "/dev/tty1" ]; then
-    # Set XDG runtime directory for Wayland
+    # Set XDG runtime directory for Wayland (required before starting compositor)
     export XDG_RUNTIME_DIR="/run/user/$(id -u)"
     
     # Create runtime directory if it doesn't exist
@@ -308,12 +308,14 @@ if [ "$(tty)" = "/dev/tty1" ]; then
     # For Electron apps (Plexamp) - may need XWayland
     export ELECTRON_OZONE_PLATFORM_HINT=auto
 
-    # Wait for seatd to be ready
-    sleep 1
+    # Wait for seatd service to be fully ready
+    while [ ! -S /run/seatd.sock ]; do
+        sleep 0.5
+    done
 
-    # Start Cage with Plexamp using seatd-launch for proper seat access
-    # seatd-launch handles the seat/DRM access that Cage needs
-    exec seatd-launch -- cage -- "$HOME/.config/cage-start.sh"
+    # Start Cage with Plexamp
+    # User must be in 'seat' group for this to work
+    exec cage -- "$HOME/.config/cage-start.sh"
 fi
 EOF
 
@@ -383,12 +385,9 @@ enable_services() {
     rc-service dbus start 2>/dev/null || true
 
     # Enable seatd (required for Cage to access DRM/GPU)
+    # Note: Do NOT enable elogind alongside seatd - they conflict
     rc-update add seatd default
     rc-service seatd start 2>/dev/null || true
-
-    # Enable elogind (session management)
-    rc-update add elogind default
-    rc-service elogind start 2>/dev/null || true
 
     # Enable cron for auto-updates
     rc-update add dcron default
