@@ -18,7 +18,8 @@ A collection of handy scripts for system setup, maintenance, and automation acro
 #### Plexamp Kiosk
 Transforms Alpine Linux into a dedicated Plexamp music kiosk with Cage Wayland compositor, Flatpak, PipeWire audio (USB DAC/HDMI/onboard), auto-login, and daily auto-updates.
 ```bash
-wget -O - https://raw.githubusercontent.com/RetroTrigger/.Scripts/master/alpine-plexamp-kiosk.sh | sudo sh
+# Run as root (su - first, or from Alpine installer)
+wget -O - https://raw.githubusercontent.com/RetroTrigger/.Scripts/master/alpine-plexamp-kiosk.sh | sh
 ```
 
 ### Arch Linux

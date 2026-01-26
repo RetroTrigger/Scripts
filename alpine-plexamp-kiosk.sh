@@ -16,8 +16,8 @@
 #   - Root privileges
 #   - Plex Pass subscription (required for Plexamp)
 #
-# One-liner install:
-#   wget -O - https://raw.githubusercontent.com/RetroTrigger/.Scripts/master/alpine-plexamp-kiosk.sh | sudo sh
+# One-liner install (run as root):
+#   wget -O - https://raw.githubusercontent.com/RetroTrigger/.Scripts/master/alpine-plexamp-kiosk.sh | sh
 #
 # Manual usage:
 #   chmod +x alpine-plexamp-kiosk.sh
