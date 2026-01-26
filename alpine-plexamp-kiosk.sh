@@ -4,7 +4,7 @@
 # 
 # This script transforms a minimal Alpine Linux installation into a dedicated
 # Plexamp music kiosk. It sets up:
-#   - Cage (Wayland kiosk compositor) for fullscreen display
+#   - X11 with Openbox (lightweight, reliable kiosk mode)
 #   - Flatpak for running Plexamp (handles glibc compatibility)
 #   - PipeWire for audio (supports USB DAC, HDMI, onboard audio)
 #   - Auto-login and auto-start on boot
@@ -124,23 +124,25 @@ install_packages() {
     log_info "Installing required packages..."
 
     # Core system packages
-    # Note: Using seatd instead of elogind for seat management
-    # Do NOT use both - they conflict
     apk add --no-cache \
         dbus \
         dbus-x11 \
-        polkit
+        polkit \
+        elogind \
+        elogind-openrc
 
-    # Wayland and Cage kiosk compositor
+    # X11 and Openbox (more compatible than Wayland)
     apk add --no-cache \
-        cage \
-        wlroots \
-        xwayland \
+        xorg-server \
+        xinit \
+        xf86-video-vesa \
+        xf86-video-fbdev \
+        xf86-input-libinput \
         mesa-dri-gallium \
         mesa-egl \
-        libinput \
-        seatd \
-        seatd-openrc
+        openbox \
+        xdotool \
+        xset
 
     # Flatpak for running Plexamp
     apk add --no-cache \
@@ -151,7 +153,8 @@ install_packages() {
         pipewire \
         pipewire-pulse \
         pipewire-alsa \
-        wireplumber
+        wireplumber \
+        alsa-utils
 
     # Auto-login support
     apk add --no-cache \
@@ -190,8 +193,7 @@ setup_kiosk_user() {
         log_warn "User ${KIOSK_USER} already exists"
     fi
 
-    # Set empty password for kiosk user (allows su - kiosk without password)
-    # This is safe since the user auto-logs in anyway and has no sudo access
+    # Set password for kiosk user (allows su - kiosk for debugging)
     echo "${KIOSK_USER}:${KIOSK_USER}" | chpasswd
     log_info "Set password for ${KIOSK_USER} to: ${KIOSK_USER}"
 
@@ -200,10 +202,11 @@ setup_kiosk_user() {
     addgroup "${KIOSK_USER}" video 2>/dev/null || true
     addgroup "${KIOSK_USER}" input 2>/dev/null || true
     addgroup "${KIOSK_USER}" plugdev 2>/dev/null || true
-    addgroup "${KIOSK_USER}" seat 2>/dev/null || true
+    addgroup "${KIOSK_USER}" tty 2>/dev/null || true
 
     # Create config directories
     mkdir -p "${KIOSK_HOME}/.config"
+    mkdir -p "${KIOSK_HOME}/.config/openbox"
     mkdir -p "${KIOSK_HOME}/.local/share/flatpak"
 
     log_success "Kiosk user configured"
@@ -215,9 +218,6 @@ setup_kiosk_user() {
 
 setup_autologin() {
     log_info "Configuring auto-login..."
-
-    # Install agetty for auto-login support
-    # Modify inittab to auto-login on tty1
 
     # Backup original inittab
     cp /etc/inittab /etc/inittab.bak
@@ -259,21 +259,29 @@ setup_flatpak() {
 }
 
 # ============================================================================
-# Cage Wayland Compositor Configuration
+# X11 and Openbox Kiosk Configuration
 # ============================================================================
 
-setup_cage() {
-    log_info "Configuring Cage kiosk compositor..."
+setup_x11_kiosk() {
+    log_info "Configuring X11 kiosk with Openbox..."
 
-    # Create the Cage startup script
-    cat > "${KIOSK_HOME}/.config/cage-start.sh" <<'EOF'
+    # Create .xinitrc to start Openbox
+    cat > "${KIOSK_HOME}/.xinitrc" <<'EOF'
 #!/bin/sh
 #
-# Cage startup script for Plexamp kiosk
+# X11 startup script for Plexamp kiosk
 #
 
-# Wait for services to be ready
-sleep 2
+# Disable screen blanking and power management
+xset s off
+xset -dpms
+xset s noblank
+
+# Hide mouse cursor after 3 seconds of inactivity
+# (unclutter package would be needed, skip if not available)
+if command -v unclutter >/dev/null 2>&1; then
+    unclutter -idle 3 &
+fi
 
 # Start PipeWire audio
 pipewire &
@@ -283,50 +291,130 @@ sleep 1
 pipewire-pulse &
 sleep 1
 
+# Start Openbox window manager
+exec openbox-session
+EOF
+    chmod +x "${KIOSK_HOME}/.xinitrc"
+
+    # Create Openbox autostart to launch Plexamp
+    mkdir -p "${KIOSK_HOME}/.config/openbox"
+    cat > "${KIOSK_HOME}/.config/openbox/autostart" <<'EOF'
+#!/bin/sh
+#
+# Openbox autostart - launches Plexamp in kiosk mode
+#
+
+# Wait for window manager to be ready
+sleep 2
+
 # Launch Plexamp via Flatpak
-exec flatpak run com.plexamp.Plexamp
+flatpak run com.plexamp.Plexamp &
+
+# Wait for Plexamp window to appear, then make it fullscreen
+sleep 5
+xdotool search --name "Plexamp" windowactivate --sync
+xdotool key F11 2>/dev/null || true
+EOF
+    chmod +x "${KIOSK_HOME}/.config/openbox/autostart"
+
+    # Create Openbox rc.xml for kiosk mode (no decorations, no menus)
+    cat > "${KIOSK_HOME}/.config/openbox/rc.xml" <<'EOF'
+<?xml version="1.0" encoding="UTF-8"?>
+<openbox_config xmlns="http://openbox.org/3.4/rc">
+  <resistance>
+    <strength>10</strength>
+    <screen_edge_strength>20</screen_edge_strength>
+  </resistance>
+  <focus>
+    <focusNew>yes</focusNew>
+    <followMouse>no</followMouse>
+    <focusLast>yes</focusLast>
+    <underMouse>no</underMouse>
+    <focusDelay>200</focusDelay>
+    <raiseOnFocus>no</raiseOnFocus>
+  </focus>
+  <placement>
+    <policy>Smart</policy>
+    <center>yes</center>
+    <monitor>Primary</monitor>
+    <primaryMonitor>1</primaryMonitor>
+  </placement>
+  <theme>
+    <name>Clearlooks</name>
+    <titleLayout>NLIMC</titleLayout>
+    <keepBorder>no</keepBorder>
+    <animateIconify>no</animateIconify>
+    <font place="ActiveWindow">
+      <name>Sans</name>
+      <size>10</size>
+      <weight>Bold</weight>
+      <slant>Normal</slant>
+    </font>
+  </theme>
+  <desktops>
+    <number>1</number>
+    <firstdesk>1</firstdesk>
+    <names>
+      <name>Plexamp</name>
+    </names>
+  </desktops>
+  <resize>
+    <drawContents>yes</drawContents>
+    <popupShow>Nonpixel</popupShow>
+    <popupPosition>Center</popupPosition>
+  </resize>
+  <margins>
+    <top>0</top>
+    <bottom>0</bottom>
+    <left>0</left>
+    <right>0</right>
+  </margins>
+  <keyboard>
+    <!-- Allow F11 for fullscreen toggle -->
+    <keybind key="F11">
+      <action name="ToggleFullscreen"/>
+    </keybind>
+    <!-- Allow Ctrl+Alt+Delete to restart session (emergency) -->
+    <keybind key="C-A-Delete">
+      <action name="Execute">
+        <command>pkill -u kiosk openbox</command>
+      </action>
+    </keybind>
+  </keyboard>
+  <mouse>
+    <dragThreshold>1</dragThreshold>
+    <doubleClickTime>500</doubleClickTime>
+    <screenEdgeWarpTime>400</screenEdgeWarpTime>
+    <screenEdgeWarpMouse>false</screenEdgeWarpMouse>
+  </mouse>
+  <applications>
+    <!-- Make Plexamp fullscreen and undecorated by default -->
+    <application name="plexamp" class="Plexamp" type="normal">
+      <decor>no</decor>
+      <fullscreen>yes</fullscreen>
+      <focus>yes</focus>
+    </application>
+    <application name="*">
+      <decor>no</decor>
+      <focus>yes</focus>
+    </application>
+  </applications>
+</openbox_config>
 EOF
 
-    chmod +x "${KIOSK_HOME}/.config/cage-start.sh"
-
-    # Create user profile to auto-start Cage on login
+    # Create user profile to auto-start X on login
     cat > "${KIOSK_HOME}/.profile" <<'EOF'
 # Plexamp Kiosk auto-start
 
-# Only start on tty1
-if [ "$(tty)" = "/dev/tty1" ]; then
-    # Set XDG runtime directory for Wayland (required before starting compositor)
-    export XDG_RUNTIME_DIR="/run/user/$(id -u)"
-    
-    # Create runtime directory if it doesn't exist
-    if [ ! -d "$XDG_RUNTIME_DIR" ]; then
-        mkdir -p "$XDG_RUNTIME_DIR"
-        chmod 700 "$XDG_RUNTIME_DIR"
-    fi
-
-    # Set environment variables
-    export XDG_SESSION_TYPE=wayland
-    export XDG_CURRENT_DESKTOP=cage
-    export QT_QPA_PLATFORM=wayland
-    export MOZ_ENABLE_WAYLAND=1
-    
-    # For Electron apps (Plexamp) - may need XWayland
-    export ELECTRON_OZONE_PLATFORM_HINT=auto
-
-    # Wait for seatd service to be fully ready
-    while [ ! -S /run/seatd.sock ]; do
-        sleep 0.5
-    done
-
-    # Start Cage with Plexamp
-    # User must be in 'seat' group for this to work
-    exec cage -- "$HOME/.config/cage-start.sh"
+# Only start X on tty1
+if [ "$(tty)" = "/dev/tty1" ] && [ -z "$DISPLAY" ]; then
+    exec startx
 fi
 EOF
 
     chown -R "${KIOSK_USER}:${KIOSK_USER}" "${KIOSK_HOME}"
 
-    log_success "Cage compositor configured"
+    log_success "X11 kiosk with Openbox configured"
 }
 
 # ============================================================================
@@ -389,10 +477,9 @@ enable_services() {
     rc-update add dbus default
     rc-service dbus start 2>/dev/null || true
 
-    # Enable seatd (required for Cage to access DRM/GPU)
-    # Note: Do NOT enable elogind alongside seatd - they conflict
-    rc-update add seatd default
-    rc-service seatd start 2>/dev/null || true
+    # Enable elogind (session management for X11)
+    rc-update add elogind default
+    rc-service elogind start 2>/dev/null || true
 
     # Enable cron for auto-updates
     rc-update add dcron default
@@ -403,9 +490,9 @@ enable_services() {
     cat > /etc/local.d/xdg-runtime.start <<EOF
 #!/bin/sh
 # Create XDG runtime directories for users
-mkdir -p /run/user/$(id -u ${KIOSK_USER})
-chown ${KIOSK_USER}:${KIOSK_USER} /run/user/$(id -u ${KIOSK_USER})
-chmod 700 /run/user/$(id -u ${KIOSK_USER})
+mkdir -p /run/user/\$(id -u ${KIOSK_USER})
+chown ${KIOSK_USER}:${KIOSK_USER} /run/user/\$(id -u ${KIOSK_USER})
+chmod 700 /run/user/\$(id -u ${KIOSK_USER})
 EOF
     chmod +x /etc/local.d/xdg-runtime.start
     rc-update add local default
@@ -448,9 +535,6 @@ EOF
 
     chmod +x /etc/periodic/daily/flatpak-update
 
-    # Ensure periodic daily runs (Alpine uses run-parts)
-    # dcron should handle /etc/periodic automatically
-
     log_success "Flatpak auto-updates configured (runs daily at 2am)"
 }
 
@@ -490,7 +574,7 @@ EOF
 #
 # Restart Plexamp kiosk session
 #
-pkill -u "$(whoami)" cage 2>/dev/null
+pkill -u "$(whoami)" openbox 2>/dev/null
 sleep 1
 # Session will restart automatically via login
 EOF
@@ -516,6 +600,10 @@ print_instructions() {
     echo "  2. The system will auto-login and start Plexamp"
     echo "  3. Sign in with your Plex account (first run only)"
     echo ""
+    echo "  Kiosk user credentials:"
+    echo "  - Username: ${KIOSK_USER}"
+    echo "  - Password: ${KIOSK_USER}"
+    echo ""
     echo "  Useful commands (run as ${KIOSK_USER}):"
     echo "  - Switch audio output:  ~/switch-audio.sh"
     echo "  - Restart Plexamp:      ~/restart-plexamp.sh"
@@ -525,12 +613,13 @@ print_instructions() {
     echo "  - Flatpak packages update daily at 2am"
     echo "  - Check update log: /var/log/flatpak-update.log"
     echo ""
-    echo "  SSH access (if enabled):"
-    echo "  - You can SSH in for remote management"
-    echo "  - Switch to tty2 (Ctrl+Alt+F2) for a login shell"
+    echo "  Keyboard shortcuts:"
+    echo "  - F11: Toggle fullscreen"
+    echo "  - Ctrl+Alt+F2: Switch to tty2 for shell access"
+    echo "  - Ctrl+Alt+Delete: Restart kiosk session"
     echo ""
     echo "  Troubleshooting:"
-    echo "  - Check Cage logs: journalctl --user -u cage (if using systemd)"
+    echo "  - Check X11 log: ~/.local/share/xorg/Xorg.0.log"
     echo "  - View audio devices: pactl list sinks"
     echo "  - Test audio: speaker-test -c 2"
     echo ""
@@ -554,7 +643,7 @@ main() {
     setup_kiosk_user
     setup_autologin
     setup_flatpak
-    setup_cage
+    setup_x11_kiosk
     setup_audio
     enable_services
     setup_auto_update
