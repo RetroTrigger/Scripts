@@ -9,6 +9,7 @@ A collection of handy scripts for system setup, maintenance, and automation acro
 - [Server Management](#server-management)
 - [Gaming](#gaming)
 - [Utilities](#utilities)
+- [Configuration Files](#configuration-files)
 - [Contribution](#contribution)
 
 ## System Setup
@@ -178,6 +179,8 @@ Mounts PS3 ISO files, extracts contents, and compresses them into squashfs forma
 wget -O - https://raw.githubusercontent.com/RetroTrigger/.Scripts/master/mount_and_extract_ps3_isos.sh | bash
 ```
 
+> **Tip:** If a mount point gets stuck after an interrupted run, see `clean mountpoint.txt` for commands to forcefully unmount and clean up `/tmp/ps3iso_mount`.
+
 ### Check Complete Games Set
 Python script that scrapes Wikipedia for PlayStation 2 game list and checks which games are missing from a local collection.
 ```bash
@@ -215,6 +218,27 @@ Simple script that extracts all ZIP files in current directory into folders name
 ```bash
 wget -O - https://raw.githubusercontent.com/RetroTrigger/.Scripts/master/unzip.sh | bash
 ```
+
+### Bitwarden SSH Key Restore
+Restores a GitHub SSH key from a Bitwarden vault attachment onto a fresh machine. Installs the Bitwarden CLI, logs in, downloads the private key attachment, writes it to `~/.ssh/`, regenerates the public key, and configures `~/.ssh/config` for GitHub. Supports Debian/Ubuntu, Alpine, Arch, and RHEL-based distros.
+```bash
+wget -O - https://raw.githubusercontent.com/RetroTrigger/.Scripts/master/bw_key_install.sh | bash
+```
+
+Configurable via environment variables:
+- `KEY_ITEM_NAME` — Bitwarden item name (default: `GitHub SSH Key`)
+- `KEY_ATTACHMENT_NAME` — attachment filename (default: `id_ed25519_github`)
+- `SSH_KEY_PATH` — destination path (default: `~/.ssh/id_ed25519_github`)
+- `BW_SERVER` — set if using a self-hosted Bitwarden instance
+- `NONINTERACTIVE=1` — skip interactive login (for CI, assumes already logged in)
+
+## Configuration Files
+
+### Media Server Stack (`docker-compose.yml`)
+Docker Compose stack for a self-hosted media server, including Sonarr, Radarr, Prowlarr, and related services.
+
+### Recyclarr (`recyclarr.yaml`)
+Recyclarr configuration for automatically syncing quality profiles and custom formats to Sonarr and Radarr from the TRaSH Guides.
 
 ## Contribution
 
