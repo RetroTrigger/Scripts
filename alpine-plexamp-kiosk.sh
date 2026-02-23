@@ -29,7 +29,7 @@
 #   3. Sign in with your Plex account (first run only)
 #
 
-set -e
+set -eu
 
 # ============================================================================
 # Configuration
@@ -100,15 +100,12 @@ setup_repositories() {
     cp /etc/apk/repositories /etc/apk/repositories.bak
 
     # Get Alpine version for repository URLs
-    ALPINE_VERSION=$(cat /etc/alpine-release | cut -d'.' -f1,2)
+    ALPINE_VERSION=$(cut -d'.' -f1,2 /etc/alpine-release)
 
-    # Ensure community repository is enabled
+    # Ensure community repository is enabled (append only, preserving existing entries)
     if ! grep -q "^[^#].*community" /etc/apk/repositories; then
         log_info "Enabling community repository..."
-        cat > /etc/apk/repositories <<EOF
-https://dl-cdn.alpinelinux.org/alpine/v${ALPINE_VERSION}/main
-https://dl-cdn.alpinelinux.org/alpine/v${ALPINE_VERSION}/community
-EOF
+        echo "https://dl-cdn.alpinelinux.org/alpine/v${ALPINE_VERSION}/community" >> /etc/apk/repositories
     fi
 
     # Update package index
@@ -189,7 +186,7 @@ setup_kiosk_user() {
 
     # Create kiosk user if it doesn't exist
     if ! id "${KIOSK_USER}" >/dev/null 2>&1; then
-        adduser -D -s /bin/sh -h "${KIOSK_HOME}" "${KIOSK_USER}"
+        adduser -D -s /bin/bash -h "${KIOSK_HOME}" "${KIOSK_USER}"
         log_success "Created user: ${KIOSK_USER}"
     else
         log_warn "User ${KIOSK_USER} already exists"
@@ -222,6 +219,9 @@ setup_autologin() {
     log_info "Configuring auto-login..."
 
     # Backup original inittab
+    if [ ! -f /etc/inittab ]; then
+        die "/etc/inittab not found. Cannot configure auto-login on this setup."
+    fi
     cp /etc/inittab /etc/inittab.bak
 
     # Check if auto-login is already configured
@@ -248,6 +248,9 @@ setup_autologin() {
 setup_flatpak() {
     log_info "Setting up Flatpak and Plexamp..."
 
+    # Flatpak requires D-Bus; ensure it is running before any flatpak commands
+    rc-service dbus start 2>/dev/null || true
+
     # Create flatpak directories with proper permissions first
     mkdir -p /var/lib/flatpak
     mkdir -p "${KIOSK_HOME}/.local/share/flatpak"
@@ -265,9 +268,7 @@ setup_flatpak() {
         flatpak uninstall -y --noninteractive com.plexamp.Plexamp 2>/dev/null || true
         
         if ! flatpak install -y --noninteractive flathub com.plexamp.Plexamp; then
-            log_error "Failed to install Plexamp. Please check disk space and try again."
-            log_error "You can manually install later with: flatpak install flathub com.plexamp.Plexamp"
-            return 1
+            die "Failed to install Plexamp. Check disk space, then run manually: flatpak install flathub com.plexamp.Plexamp"
         fi
     fi
 
@@ -275,8 +276,7 @@ setup_flatpak() {
     if flatpak list | grep -q "com.plexamp.Plexamp"; then
         log_success "Plexamp installed via Flatpak"
     else
-        log_error "Plexamp installation verification failed"
-        return 1
+        die "Plexamp installation verification failed"
     fi
 }
 
@@ -307,11 +307,13 @@ fi
 
 # Start PipeWire audio
 pipewire &
-sleep 1
+# Wait for PipeWire socket instead of a fixed sleep (up to 10s)
+_i=0; while [ $_i -lt 10 ] && [ ! -S "${XDG_RUNTIME_DIR}/pipewire-0" ]; do sleep 1; _i=$((_i+1)); done
 wireplumber &
 sleep 1
 pipewire-pulse &
-sleep 1
+# Wait for PulseAudio socket (up to 10s)
+_i=0; while [ $_i -lt 10 ] && [ ! -S "${XDG_RUNTIME_DIR}/pulse/native" ]; do sleep 1; _i=$((_i+1)); done
 
 # Start Openbox window manager
 exec openbox-session
@@ -355,9 +357,10 @@ PLEXAMP_PID=$!
 echo "$(date) - Plexamp started with PID $PLEXAMP_PID" >> "$LOG"
 
 # Wait for Plexamp window to appear (up to 30 seconds)
-for i in $(seq 1 30); do
+_i=0
+while [ $_i -lt 30 ]; do
     if xdotool search --name "Plexamp" >/dev/null 2>&1; then
-        echo "$(date) - Plexamp window found after ${i}s" >> "$LOG"
+        echo "$(date) - Plexamp window found after ${_i}s" >> "$LOG"
         sleep 1
         xdotool search --name "Plexamp" windowactivate 2>/dev/null || true
         # Try to maximize/fullscreen
@@ -365,6 +368,7 @@ for i in $(seq 1 30); do
         break
     fi
     sleep 1
+    _i=$((_i+1))
 done
 
 echo "$(date) - Autostart complete" >> "$LOG"
@@ -372,6 +376,7 @@ EOF
     chmod +x "${KIOSK_HOME}/.config/openbox/autostart"
 
     # Create Openbox rc.xml for kiosk mode (no decorations, no menus)
+    # Note: written with quoted heredoc then patched, as XML content prevents variable expansion
     cat > "${KIOSK_HOME}/.config/openbox/rc.xml" <<'EOF'
 <?xml version="1.0" encoding="UTF-8"?>
 <openbox_config xmlns="http://openbox.org/3.4/rc">
@@ -456,6 +461,9 @@ EOF
 </openbox_config>
 EOF
 
+    # Patch the hardcoded username in the Ctrl+Alt+Delete action
+    sed -i "s/pkill -u kiosk openbox/pkill -u ${KIOSK_USER} openbox/" "${KIOSK_HOME}/.config/openbox/rc.xml"
+
     # Create user profile to auto-start X on login
     cat > "${KIOSK_HOME}/.profile" <<'EOF'
 # Plexamp Kiosk auto-start
@@ -494,15 +502,30 @@ context.properties = {
 }
 EOF
 
-    # Create WirePlumber configuration for audio device handling
-    cat > "${KIOSK_HOME}/.config/wireplumber/main.lua.d/50-audio-config.lua" <<'EOF'
+    # Create WirePlumber configuration - format changed in 0.5 (Alpine 3.20+)
+    _wp_ver=$(wireplumber --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+' | head -1 || echo "0.4")
+    _wp_minor=$(echo "$_wp_ver" | cut -d'.' -f2)
+    if [ "$_wp_minor" -ge 5 ]; then
+        # WirePlumber 0.5+: .conf format (Lua scripting removed)
+        mkdir -p "${KIOSK_HOME}/.config/wireplumber/wireplumber.conf.d"
+        cat > "${KIOSK_HOME}/.config/wireplumber/wireplumber.conf.d/50-audio-config.conf" <<'EOF'
+monitor.alsa.rules = [
+  {
+    matches = [ { device.name = "~alsa_card.*" } ]
+    actions = {
+      update-props = {
+        device.disabled = false
+      }
+    }
+  }
+]
+EOF
+    else
+        # WirePlumber 0.4: Lua scripts
+        cat > "${KIOSK_HOME}/.config/wireplumber/main.lua.d/50-audio-config.lua" <<'EOF'
 -- WirePlumber audio configuration for Plexamp kiosk
--- This allows all audio devices to be available
-
--- Enable all ALSA devices
 alsa_monitor.enabled = true
 
--- Enable USB audio devices
 rule = {
   matches = {
     {
@@ -514,6 +537,7 @@ rule = {
   },
 }
 EOF
+    fi
 
     chown -R "${KIOSK_USER}:${KIOSK_USER}" "${KIOSK_HOME}/.config"
 
