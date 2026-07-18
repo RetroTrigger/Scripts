@@ -42,6 +42,7 @@ ISO_DIR="${ISO_DIR:-/srv/virtualbox/isos}"
 WEB_ROOT="/var/www/phpvirtualbox"
 PHPVBOX_VERSION="7.2-3"
 VBOX_WEBSERVICE_PORT="18083"
+VBOX_REPO_CODENAME="${VBOX_REPO_CODENAME:-bookworm}"
 
 read_secret() {
   local var_name="$1"
@@ -81,9 +82,11 @@ log "Adding Oracle's signed VirtualBox repository"
 install -d -m 0755 /usr/share/keyrings
 curl -fsSL https://www.virtualbox.org/download/oracle_vbox_2016.asc \
   | gpg --dearmor --yes -o /usr/share/keyrings/oracle-virtualbox-2016.gpg
+chown root:root /usr/share/keyrings/oracle-virtualbox-2016.gpg
+chmod 0644 /usr/share/keyrings/oracle-virtualbox-2016.gpg
 
 cat >/etc/apt/sources.list.d/virtualbox.list <<EOF
-deb [arch=amd64 signed-by=/usr/share/keyrings/oracle-virtualbox-2016.gpg] https://download.virtualbox.org/virtualbox/debian trixie contrib
+deb [arch=amd64 signed-by=/usr/share/keyrings/oracle-virtualbox-2016.gpg] https://download.virtualbox.org/virtualbox/debian ${VBOX_REPO_CODENAME} contrib
 EOF
 
 apt-get update
