@@ -70,8 +70,19 @@ read_secret WEB_PASSWORD "Password for the Apache web login '$WEB_USER'"
 [[ ${#VBOX_PASSWORD} -ge 12 ]] || warn "The VirtualBox service password is shorter than 12 characters."
 [[ ${#WEB_PASSWORD} -ge 12 ]] || warn "The web password is shorter than 12 characters."
 
-log "Installing base packages"
+log "Preparing APT"
 export DEBIAN_FRONTEND=noninteractive
+
+# A previous failed run may have left an unreadable keyring and a Trixie
+# VirtualBox source behind. Remove the source before the first apt update,
+# otherwise APT aborts before this installer can repair the repository.
+rm -f /etc/apt/sources.list.d/virtualbox.list
+if [[ -e /usr/share/keyrings/oracle-virtualbox-2016.gpg ]]; then
+  chown root:root /usr/share/keyrings/oracle-virtualbox-2016.gpg
+  chmod 0644 /usr/share/keyrings/oracle-virtualbox-2016.gpg
+fi
+
+log "Installing base packages"
 apt-get update
 apt-get install -y --no-install-recommends \
   apache2 apache2-utils ca-certificates curl gnupg openssl unzip \
