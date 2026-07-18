@@ -44,10 +44,20 @@ PHPVBOX_VERSION="7.2-3"
 VBOX_WEBSERVICE_PORT="18083"
 
 read_secret() {
-  local var_name="$1" prompt="$2" value="${!var_name:-}"
+  local var_name="$1"
+  local prompt="$2"
+  local value=""
+
+  # Declare first, then perform indirect expansion. This avoids the
+  # "invalid indirect expansion" error seen on some Bash versions.
+  value="${!var_name-}"
+
   if [[ -z "$value" ]]; then
-    read -r -s -p "$prompt: " value
-    echo
+    # Read from the controlling terminal so prompts still work when the
+    # installer itself is piped in with: wget -O - URL | bash
+    [[ -r /dev/tty ]] || die "No interactive terminal available. Set $var_name as an environment variable."
+    read -r -s -p "$prompt: " value </dev/tty
+    printf '\n' >/dev/tty
     [[ -n "$value" ]] || die "$var_name cannot be empty."
     printf -v "$var_name" '%s' "$value"
   fi
@@ -87,7 +97,7 @@ echo "${VBOX_USER}:${VBOX_PASSWORD}" | chpasswd
 usermod -aG vboxusers "$VBOX_USER"
 
 install -d -o "$VBOX_USER" -g "$VBOX_USER" -m 0750 "$VM_DIR" "$ISO_DIR"
-sudo -u "$VBOX_USER" VBoxManage setproperty machinefolder "$VM_DIR"
+runuser -u "$VBOX_USER" -- VBoxManage setproperty machinefolder "$VM_DIR"
 
 log "Configuring vboxwebsrv"
 cat >/etc/default/virtualbox <<EOF
@@ -265,6 +275,6 @@ Useful checks:
   systemctl status vboxweb-service
   systemctl status apache2
   VBoxManage --version
-  sudo -u ${VBOX_USER} VBoxManage list vms
+  runuser -u ${VBOX_USER} -- VBoxManage list vms
   journalctl -u vboxweb-service -f
 EOF
