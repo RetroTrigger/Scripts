@@ -135,6 +135,12 @@ get_missing_packages() {
     done
 }
 
+apt_package_available() {
+    local package=$1
+    apt-cache policy "$package" 2>/dev/null |
+        awk '/^[[:space:]]*Candidate:/ { found=1; available=($2 != "(none)") } END { exit !(found && available) }'
+}
+
 install_optional_steam() {
     if is_package_installed steam; then
         printf '%b\n' "${GREEN}✅ Steam is already installed.${RESET}"
@@ -165,9 +171,9 @@ install_packages() {
             packages=(base-devel nitrogen xorg-server xorg-xinit xorg-xrandr xorg-xsetroot git feh lxappearance arandr thunar thunar-volman thunar-archive-plugin thunar-media-tags-plugin gvfs gvfs-mtp gvfs-gphoto2 gvfs-afc gvfs-nfs gvfs-smb polkit-gnome picom flameshot imagemagick ttf-dejavu ttf-liberation noto-fonts ttf-droid ttf-iosevka-nerd libx11 libxft libxinerama)
             ;;
         apt)
-            if apt-cache show policykit-1-gnome >/dev/null 2>&1; then
+            if apt_package_available policykit-1-gnome; then
                 polkit_agent="policykit-1-gnome"
-            elif apt-cache show mate-polkit-bin >/dev/null 2>&1; then
+            elif apt_package_available mate-polkit-bin; then
                 polkit_agent="mate-polkit-bin"
             else
                 die "No supported PolicyKit authentication agent is available from the enabled apt repositories."
