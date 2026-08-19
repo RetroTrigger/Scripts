@@ -345,7 +345,7 @@ create_dwm_desktop_entry() {
 [Desktop Entry]
 Name=DWM
 Comment=Dynamic Window Manager
-Exec="$INSTALL_PREFIX/bin/dwm-session"
+Exec=$INSTALL_PREFIX/bin/dwm-session
 Type=Application
 DesktopNames=DWM
 EOF
