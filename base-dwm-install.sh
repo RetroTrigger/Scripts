@@ -285,7 +285,9 @@ build_software() {
     TEMP_FILES+=("$staging_directory")
     make -C "$directory" PREFIX="$INSTALL_PREFIX" DESTDIR="$staging_directory" install
     sudo install -d -m 0755 "$INSTALL_PREFIX"
-    sudo cp -a "$staging_directory$INSTALL_PREFIX/." "$INSTALL_PREFIX/"
+    # Unlink existing executables before copying so an active DWM process does
+    # not make an in-place overwrite fail with ETXTBSY ("Text file busy").
+    sudo cp -a --remove-destination "$staging_directory$INSTALL_PREFIX/." "$INSTALL_PREFIX/"
     [ -x "$INSTALL_PREFIX/bin/$name" ] || die "$name did not install to $INSTALL_PREFIX/bin/$name."
 }
 
