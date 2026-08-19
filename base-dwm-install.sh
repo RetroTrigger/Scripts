@@ -10,6 +10,8 @@ readonly DMENU_REVISION="c59af646f2d8ccbc31f799111b0ff7a1282efa63"
 readonly DWM_REPOSITORY="https://github.com/bakkeby/dwm-flexipatch.git"
 readonly ST_REPOSITORY="https://github.com/bakkeby/st-flexipatch.git"
 readonly DMENU_REPOSITORY="https://github.com/bakkeby/dmenu-flexipatch.git"
+readonly DOTFILES_REPOSITORY="https://github.com/RetroTrigger/dotfiles.git"
+readonly DOTFILES_BRANCH="main"
 
 readonly INSTALL_PREFIX="/usr/local"
 readonly SUCKLESS_DIR="$HOME/.config/suckless"
@@ -25,6 +27,7 @@ readonly BOLD='\033[1m'
 readonly RESET='\033[0m'
 
 PKG_MANAGER=""
+ENABLE_MONITOR_SWITCH="no"
 declare -a UPDATE_CMD=()
 declare -a INSTALL_CMD=()
 declare -a TEMP_FILES=()
@@ -117,6 +120,20 @@ detect_package_manager() {
     printf '%b\n' "${GREEN}✅ Package manager detected: ${BOLD}${PKG_MANAGER}${RESET}"
 }
 
+ask_monitor_switch() {
+    local answer
+    answer=$(prompt "${BOLD}Install automatic external monitor switching? [Y/n]:${RESET} ")
+
+    case "${answer,,}" in
+        ""|y|yes) ENABLE_MONITOR_SWITCH="yes" ;;
+        n|no) ENABLE_MONITOR_SWITCH="no" ;;
+        *)
+            warn "Unrecognised answer '$answer'; automatic monitor switching will not be installed."
+            ENABLE_MONITOR_SWITCH="no"
+            ;;
+    esac
+}
+
 is_package_installed() {
     local package=$1
     case "$PKG_MANAGER" in
@@ -196,6 +213,14 @@ install_packages() {
             packages=("@development-tools" firefox pipewire pipewire-pulseaudio wireplumber pavucontrol alsa-utils xbindkeys nitrogen xorg-x11-server-Xorg xorg-x11-xinit xorg-x11-server-utils xrandr git feh lxappearance arandr thunar thunar-volman thunar-archive-plugin thunar-media-tags-plugin gvfs gvfs-mtp gvfs-gphoto2 gvfs-afc gvfs-nfs gvfs-smb polkit-gnome picom flameshot ImageMagick dejavu-sans-fonts liberation-fonts google-noto-sans-fonts droid-sans-fonts libX11-devel libXft-devel libXinerama-devel)
             ;;
     esac
+
+    if [ "$ENABLE_MONITOR_SWITCH" = yes ]; then
+        case "$PKG_MANAGER" in
+            apt) packages+=(udev) ;;
+            dnf) packages+=(systemd-udev) ;;
+            pacman) : ;; # udevadm is provided by the required systemd installation.
+        esac
+    fi
 
     # Package groups cannot be queried like ordinary RPMs, so let dnf handle them.
     if [ "$PKG_MANAGER" = dnf ]; then
@@ -279,12 +304,95 @@ create_dwm_session_launcher() {
     cat >"$launcher" <<EOF
 #!/bin/sh
 export PATH="$INSTALL_PREFIX/bin:\$PATH"
+monitor_watch_pid=""
+monitor_switch_config="\${DWM_MONITOR_SWITCH_CONFIG:-\$HOME/.config/dwm/automatic-monitor-switch}"
+
+cleanup_session() {
+  if [ -n "\$monitor_watch_pid" ]; then
+    kill "\$monitor_watch_pid" 2>/dev/null || true
+    wait "\$monitor_watch_pid" 2>/dev/null || true
+  fi
+}
+
+trap cleanup_session EXIT INT TERM HUP
+
 if command -v xbindkeys >/dev/null 2>&1; then
   xbindkeys
 fi
-exec "$INSTALL_PREFIX/bin/dwm"
+if [ -f "\$monitor_switch_config" ] &&
+   [ -x "\$HOME/.local/bin/monitor-watch" ] &&
+   ! pgrep -u "\$(id -u)" -f "\$HOME/.local/bin/[m]onitor-watch" >/dev/null 2>&1; then
+  "\$HOME/.local/bin/monitor-watch" &
+  monitor_watch_pid=\$!
+fi
+
+"$INSTALL_PREFIX/bin/dwm"
+session_status=\$?
+cleanup_session
+trap - EXIT
+exit "\$session_status"
 EOF
     sudo install -D -m 0755 "$launcher" "$INSTALL_PREFIX/bin/dwm-session"
+}
+
+add_monitor_block_to_xinitrc() {
+    local dotfiles_dir=$1
+    local xinitrc="$HOME/.xinitrc"
+    local block
+    local updated
+
+    if grep -Fq "# BEGIN automatic-monitor-switch" "$xinitrc"; then
+        return
+    fi
+
+    block=$(git --git-dir="$dotfiles_dir" show "origin/$DOTFILES_BRANCH:.xinitrc" |
+        sed -n '/^# BEGIN automatic-monitor-switch$/,/^# END automatic-monitor-switch$/p')
+    [ -n "$block" ] || die "The tracked dotfiles .xinitrc does not contain the monitor-switch block."
+
+    updated=$(mktemp)
+    TEMP_FILES+=("$updated")
+    awk -v block="$block" '
+        !inserted && /^[[:space:]]*exec[[:space:]]/ { print block; inserted=1 }
+        { print }
+        END { if (!inserted) print block }
+    ' "$xinitrc" >"$updated"
+    chmod --reference="$xinitrc" "$updated"
+    mv "$updated" "$xinitrc"
+}
+
+setup_monitor_switching() {
+    local dotfiles_dir="$HOME/.dotfiles"
+    local actual_remote=""
+
+    [ "$ENABLE_MONITOR_SWITCH" = yes ] || return 0
+    printf '\n%b\n' "${MAGENTA}🖥️  Installing automatic monitor switching...${RESET}"
+
+    if [ -d "$dotfiles_dir" ]; then
+        actual_remote=$(git --git-dir="$dotfiles_dir" remote get-url origin)
+        case "$actual_remote" in
+            "$DOTFILES_REPOSITORY"|"${DOTFILES_REPOSITORY%.git}") ;;
+            *) die "$dotfiles_dir has unexpected origin '$actual_remote'. Expected '$DOTFILES_REPOSITORY'." ;;
+        esac
+    else
+        git clone --bare "$DOTFILES_REPOSITORY" "$dotfiles_dir"
+        git --git-dir="$dotfiles_dir" config --local status.showUntrackedFiles no
+    fi
+
+    git --git-dir="$dotfiles_dir" fetch origin "$DOTFILES_BRANCH"
+    mkdir -p "$HOME/.config/dwm" "$HOME/.local/bin" "$HOME/.local/state"
+    git --git-dir="$dotfiles_dir" --work-tree="$HOME" checkout "origin/$DOTFILES_BRANCH" -- \
+        .local/bin/monitor-switch .local/bin/monitor-watch
+    chmod 0755 "$HOME/.local/bin/monitor-switch" "$HOME/.local/bin/monitor-watch"
+
+    if [ ! -e "$HOME/.xinitrc" ]; then
+        git --git-dir="$dotfiles_dir" --work-tree="$HOME" checkout "origin/$DOTFILES_BRANCH" -- .xinitrc
+    else
+        add_monitor_block_to_xinitrc "$dotfiles_dir"
+    fi
+    chmod 0755 "$HOME/.xinitrc"
+    touch "$HOME/.config/dwm/automatic-monitor-switch"
+    command -v udevadm >/dev/null 2>&1 || die "udevadm was not installed successfully."
+    printf '%b\n' "${GREEN}✅ Automatic monitor switching installed from the tracked dotfiles.${RESET}"
 }
 
 setup_volume_keys() {
@@ -481,11 +589,13 @@ main() {
 
     preflight
     detect_package_manager
+    ask_monitor_switch
     install_packages
     clone_repositories
     compile_software
     create_dwm_session_launcher
     setup_volume_keys
+    setup_monitor_switching
     setup_display
 }
 
