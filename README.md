@@ -62,7 +62,7 @@ wget -O - https://raw.githubusercontent.com/RetroTrigger/.Scripts/master/titus-a
 ```
 
 ### DWM Installation
-Cross-distribution script that detects package manager, installs DWM with flexipatch, compiles suckless tools (dwm, st, dmenu), and sets up display manager or startx.
+Cross-distribution script that detects the package manager, installs DWM with flexipatch, compiles suckless tools (dwm, st, dmenu), and sets up a display manager or startx. It can optionally install the tracked X11/dwm monitor-switching tools from `RetroTrigger/dotfiles`.
 ```bash
 wget -O - https://raw.githubusercontent.com/RetroTrigger/.Scripts/master/base-dwm-install.sh | bash
 ```
