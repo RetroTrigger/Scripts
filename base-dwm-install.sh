@@ -151,6 +151,7 @@ install_optional_steam() {
 install_packages() {
     local -a packages=()
     local -a missing_packages=()
+    local polkit_agent=""
 
     if ((${#UPDATE_CMD[@]})); then
         printf '\n%b\n' "${MAGENTA}📦 Refreshing package metadata...${RESET}"
@@ -164,7 +165,14 @@ install_packages() {
             packages=(base-devel nitrogen xorg-server xorg-xinit xorg-xrandr xorg-xsetroot git feh lxappearance arandr thunar thunar-volman thunar-archive-plugin thunar-media-tags-plugin gvfs gvfs-mtp gvfs-gphoto2 gvfs-afc gvfs-nfs gvfs-smb polkit-gnome picom flameshot imagemagick ttf-dejavu ttf-liberation noto-fonts ttf-droid ttf-iosevka-nerd libx11 libxft libxinerama)
             ;;
         apt)
-            packages=(build-essential nitrogen xserver-xorg xinit x11-xserver-utils git curl wget feh lxappearance arandr thunar thunar-volman thunar-archive-plugin thunar-media-tags-plugin gvfs gvfs-backends gvfs-fuse policykit-1-gnome picom flameshot imagemagick fonts-dejavu fonts-liberation fonts-noto fonts-droid-fallback libx11-dev libxft-dev libxinerama-dev)
+            if apt-cache show policykit-1-gnome >/dev/null 2>&1; then
+                polkit_agent="policykit-1-gnome"
+            elif apt-cache show mate-polkit-bin >/dev/null 2>&1; then
+                polkit_agent="mate-polkit-bin"
+            else
+                die "No supported PolicyKit authentication agent is available from the enabled apt repositories."
+            fi
+            packages=(build-essential nitrogen xserver-xorg xinit x11-xserver-utils git curl wget feh lxappearance arandr thunar thunar-volman thunar-archive-plugin thunar-media-tags-plugin gvfs gvfs-backends gvfs-fuse "$polkit_agent" picom flameshot imagemagick fonts-dejavu fonts-liberation fonts-noto fonts-droid-fallback libx11-dev libxft-dev libxinerama-dev)
             ;;
         dnf)
             packages=("@development-tools" nitrogen xorg-x11-server-Xorg xorg-x11-xinit xorg-x11-server-utils xrandr git feh lxappearance arandr thunar thunar-volman thunar-archive-plugin thunar-media-tags-plugin gvfs gvfs-mtp gvfs-gphoto2 gvfs-afc gvfs-nfs gvfs-smb polkit-gnome picom flameshot ImageMagick dejavu-sans-fonts liberation-fonts google-noto-sans-fonts droid-sans-fonts libX11-devel libXft-devel libXinerama-devel)
@@ -251,6 +259,8 @@ setup_xinitrc() {
 
 if command -v polkit-gnome-authentication-agent-1 >/dev/null 2>&1; then
   polkit-gnome-authentication-agent-1 &
+elif command -v mate-polkit >/dev/null 2>&1; then
+  mate-polkit &
 elif [ -x /usr/lib/polkit-gnome/polkit-gnome-authentication-agent-1 ]; then
   /usr/lib/polkit-gnome/polkit-gnome-authentication-agent-1 &
 elif [ -x /usr/libexec/polkit-gnome-authentication-agent-1 ]; then
