@@ -11,7 +11,7 @@ readonly DWM_REPOSITORY="https://github.com/bakkeby/dwm-flexipatch.git"
 readonly ST_REPOSITORY="https://github.com/bakkeby/st-flexipatch.git"
 readonly DMENU_REPOSITORY="https://github.com/bakkeby/dmenu-flexipatch.git"
 
-readonly INSTALL_PREFIX="${DWM_INSTALL_PREFIX:-$HOME/.local}"
+readonly INSTALL_PREFIX="/usr/local"
 readonly SUCKLESS_DIR="$HOME/.config/suckless"
 
 # Color definitions
@@ -32,7 +32,11 @@ declare -a TEMP_FILES=()
 cleanup() {
     local file
     for file in "${TEMP_FILES[@]}"; do
-        [ ! -e "$file" ] || rm -f -- "$file"
+        if [ -d "$file" ]; then
+            find "$file" -depth -delete
+        elif [ -e "$file" ]; then
+            rm -f -- "$file"
+        fi
     done
 }
 
@@ -247,24 +251,30 @@ clone_repositories() {
 build_software() {
     local name=$1
     local directory="$SUCKLESS_DIR/$name"
+    local staging_directory
 
     printf '%b\n' "${CYAN}  → Building ${name}...${RESET}"
     make -C "$directory" clean
     make -C "$directory"
-    make -C "$directory" PREFIX="$INSTALL_PREFIX" install
+    staging_directory=$(mktemp -d)
+    TEMP_FILES+=("$staging_directory")
+    make -C "$directory" PREFIX="$INSTALL_PREFIX" DESTDIR="$staging_directory" install
+    sudo install -d -m 0755 "$INSTALL_PREFIX"
+    sudo cp -a "$staging_directory$INSTALL_PREFIX/." "$INSTALL_PREFIX/"
     [ -x "$INSTALL_PREFIX/bin/$name" ] || die "$name did not install to $INSTALL_PREFIX/bin/$name."
 }
 
 compile_software() {
     printf '\n%b\n' "${YELLOW}🔨 Compiling software as $(id -un)...${RESET}"
-    mkdir -p "$INSTALL_PREFIX/bin"
     build_software dwm
     build_software st
     build_software dmenu
 }
 
 create_dwm_session_launcher() {
-    local launcher="$INSTALL_PREFIX/bin/dwm-session"
+    local launcher
+    launcher=$(mktemp)
+    TEMP_FILES+=("$launcher")
 
     cat >"$launcher" <<EOF
 #!/bin/sh
@@ -274,7 +284,7 @@ if command -v xbindkeys >/dev/null 2>&1; then
 fi
 exec "$INSTALL_PREFIX/bin/dwm"
 EOF
-    chmod 0755 "$launcher"
+    sudo install -D -m 0755 "$launcher" "$INSTALL_PREFIX/bin/dwm-session"
 }
 
 setup_volume_keys() {
