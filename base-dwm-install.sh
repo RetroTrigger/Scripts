@@ -255,6 +255,17 @@ compile_software() {
     build_software dmenu
 }
 
+create_dwm_session_launcher() {
+    local launcher="$INSTALL_PREFIX/bin/dwm-session"
+
+    cat >"$launcher" <<EOF
+#!/bin/sh
+export PATH="$INSTALL_PREFIX/bin:\$PATH"
+exec "$INSTALL_PREFIX/bin/dwm"
+EOF
+    chmod 0755 "$launcher"
+}
+
 setup_xinitrc() {
     local xinitrc="$HOME/.xinitrc"
 
@@ -275,12 +286,12 @@ elif [ -x /usr/lib/policykit-1-gnome/polkit-gnome-authentication-agent-1 ]; then
   /usr/lib/policykit-1-gnome/polkit-gnome-authentication-agent-1 &
 fi
 
-exec "$INSTALL_PREFIX/bin/dwm"
+exec "$INSTALL_PREFIX/bin/dwm-session"
 EOF
         chmod 0755 "$xinitrc"
         printf '%b\n' "${GREEN}  ✅ $xinitrc created successfully${RESET}"
     else
-        warn "$xinitrc already exists. Ensure its final command is: exec \"$INSTALL_PREFIX/bin/dwm\""
+        warn "$xinitrc already exists. Ensure its final command is: exec \"$INSTALL_PREFIX/bin/dwm-session\""
     fi
 }
 
@@ -334,7 +345,7 @@ create_dwm_desktop_entry() {
 [Desktop Entry]
 Name=DWM
 Comment=Dynamic Window Manager
-Exec="$INSTALL_PREFIX/bin/dwm"
+Exec="$INSTALL_PREFIX/bin/dwm-session"
 Type=Application
 DesktopNames=DWM
 EOF
@@ -427,6 +438,7 @@ main() {
     install_packages
     clone_repositories
     compile_software
+    create_dwm_session_launcher
     setup_display
 }
 
