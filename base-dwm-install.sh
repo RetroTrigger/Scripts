@@ -157,6 +157,7 @@ install_optional_steam() {
 install_packages() {
     local -a packages=()
     local -a missing_packages=()
+    local browser_package=""
     local polkit_agent=""
 
     if ((${#UPDATE_CMD[@]})); then
@@ -168,7 +169,7 @@ install_packages() {
 
     case "$PKG_MANAGER" in
         pacman)
-            packages=(base-devel nitrogen xorg-server xorg-xinit xorg-xrandr xorg-xsetroot git feh lxappearance arandr thunar thunar-volman thunar-archive-plugin thunar-media-tags-plugin gvfs gvfs-mtp gvfs-gphoto2 gvfs-afc gvfs-nfs gvfs-smb polkit-gnome picom flameshot imagemagick ttf-dejavu ttf-liberation noto-fonts ttf-droid ttf-iosevka-nerd libx11 libxft libxinerama)
+            packages=(base-devel firefox pipewire pipewire-pulse wireplumber pavucontrol alsa-utils xbindkeys nitrogen xorg-server xorg-xinit xorg-xrandr xorg-xsetroot git feh lxappearance arandr thunar thunar-volman thunar-archive-plugin thunar-media-tags-plugin gvfs gvfs-mtp gvfs-gphoto2 gvfs-afc gvfs-nfs gvfs-smb polkit-gnome picom flameshot imagemagick ttf-dejavu ttf-liberation noto-fonts ttf-droid ttf-iosevka-nerd libx11 libxft libxinerama)
             ;;
         apt)
             if apt_package_available policykit-1-gnome; then
@@ -178,10 +179,17 @@ install_packages() {
             else
                 die "No supported PolicyKit authentication agent is available from the enabled apt repositories."
             fi
-            packages=(build-essential nitrogen xserver-xorg xinit x11-xserver-utils git curl wget feh lxappearance arandr thunar thunar-volman thunar-archive-plugin thunar-media-tags-plugin gvfs gvfs-backends gvfs-fuse "$polkit_agent" picom flameshot imagemagick fonts-dejavu fonts-liberation fonts-noto fonts-droid-fallback libx11-dev libxft-dev libxinerama-dev)
+            if apt_package_available firefox-esr; then
+                browser_package="firefox-esr"
+            elif apt_package_available firefox; then
+                browser_package="firefox"
+            else
+                die "No Firefox package is available from the enabled apt repositories."
+            fi
+            packages=(build-essential "$browser_package" pipewire-audio pavucontrol alsa-utils xbindkeys nitrogen xserver-xorg xinit x11-xserver-utils git curl wget feh lxappearance arandr thunar thunar-volman thunar-archive-plugin thunar-media-tags-plugin gvfs gvfs-backends gvfs-fuse "$polkit_agent" picom flameshot imagemagick fonts-dejavu fonts-liberation fonts-noto fonts-droid-fallback libx11-dev libxft-dev libxinerama-dev)
             ;;
         dnf)
-            packages=("@development-tools" nitrogen xorg-x11-server-Xorg xorg-x11-xinit xorg-x11-server-utils xrandr git feh lxappearance arandr thunar thunar-volman thunar-archive-plugin thunar-media-tags-plugin gvfs gvfs-mtp gvfs-gphoto2 gvfs-afc gvfs-nfs gvfs-smb polkit-gnome picom flameshot ImageMagick dejavu-sans-fonts liberation-fonts google-noto-sans-fonts droid-sans-fonts libX11-devel libXft-devel libXinerama-devel)
+            packages=("@development-tools" firefox pipewire pipewire-pulseaudio wireplumber pavucontrol alsa-utils xbindkeys nitrogen xorg-x11-server-Xorg xorg-x11-xinit xorg-x11-server-utils xrandr git feh lxappearance arandr thunar thunar-volman thunar-archive-plugin thunar-media-tags-plugin gvfs gvfs-mtp gvfs-gphoto2 gvfs-afc gvfs-nfs gvfs-smb polkit-gnome picom flameshot ImageMagick dejavu-sans-fonts liberation-fonts google-noto-sans-fonts droid-sans-fonts libX11-devel libXft-devel libXinerama-devel)
             ;;
     esac
 
@@ -261,9 +269,37 @@ create_dwm_session_launcher() {
     cat >"$launcher" <<EOF
 #!/bin/sh
 export PATH="$INSTALL_PREFIX/bin:\$PATH"
+if command -v xbindkeys >/dev/null 2>&1; then
+  xbindkeys
+fi
 exec "$INSTALL_PREFIX/bin/dwm"
 EOF
     chmod 0755 "$launcher"
+}
+
+setup_volume_keys() {
+    local config="$HOME/.xbindkeysrc"
+    local marker="# DWM installer volume keys"
+
+    touch "$config"
+    if grep -Fq "$marker" "$config"; then
+        printf '%b\n' "${GREEN}✅ Volume keys are already configured in $config${RESET}"
+        return
+    fi
+
+    cat >>"$config" <<'EOF'
+
+# DWM installer volume keys
+"wpctl set-volume -l 1.0 @DEFAULT_AUDIO_SINK@ 5%+"
+  XF86AudioRaiseVolume
+"wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%-"
+  XF86AudioLowerVolume
+"wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle"
+  XF86AudioMute
+"wpctl set-mute @DEFAULT_AUDIO_SOURCE@ toggle"
+  XF86AudioMicMute
+EOF
+    printf '%b\n' "${GREEN}✅ Volume keys configured in $config${RESET}"
 }
 
 setup_xinitrc() {
@@ -439,6 +475,7 @@ main() {
     clone_repositories
     compile_software
     create_dwm_session_launcher
+    setup_volume_keys
     setup_display
 }
 
