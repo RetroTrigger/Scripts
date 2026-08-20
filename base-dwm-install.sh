@@ -285,7 +285,9 @@ build_software() {
     TEMP_FILES+=("$staging_directory")
     make -C "$directory" PREFIX="$INSTALL_PREFIX" DESTDIR="$staging_directory" install
     sudo install -d -m 0755 "$INSTALL_PREFIX"
-    sudo cp -a "$staging_directory$INSTALL_PREFIX/." "$INSTALL_PREFIX/"
+    # Unlink existing executables before copying so an active DWM process does
+    # not make an in-place overwrite fail with ETXTBSY ("Text file busy").
+    sudo cp -a --remove-destination "$staging_directory$INSTALL_PREFIX/." "$INSTALL_PREFIX/"
     [ -x "$INSTALL_PREFIX/bin/$name" ] || die "$name did not install to $INSTALL_PREFIX/bin/$name."
 }
 
@@ -378,7 +380,12 @@ setup_monitor_switching() {
         git --git-dir="$dotfiles_dir" config --local status.showUntrackedFiles no
     fi
 
-    git --git-dir="$dotfiles_dir" fetch origin "$DOTFILES_BRANCH"
+    # A bare clone stores the initial branch directly under refs/heads and does
+    # not create origin/<branch>. Fetch that remote-tracking ref explicitly so
+    # the checkout and git-show commands below work on both fresh and rerun
+    # installations.
+    git --git-dir="$dotfiles_dir" fetch origin \
+        "+$DOTFILES_BRANCH:refs/remotes/origin/$DOTFILES_BRANCH"
     mkdir -p "$HOME/.config/dwm" "$HOME/.local/bin" "$HOME/.local/state"
     git --git-dir="$dotfiles_dir" --work-tree="$HOME" checkout "origin/$DOTFILES_BRANCH" -- \
         .local/bin/monitor-switch .local/bin/monitor-watch
